@@ -52,14 +52,25 @@ class ESPCN():
         
         return tf.nn.tanh(ps)
 
+    #def _phase_shift(self, I, r):
+        # Helper function with main phase shift operation
+        #bsize, a, b, c = I.get_shape().as_list()
+        #X = tf.reshape(I, (self.batch_size, a, b, r, r))
+        #X = tf.split(X, a, 1)  # a, [bsize, b, r, r]
+        #X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, b, a*r, r
+        #X = tf.split(X, b, 1)  # b, [bsize, a*r, r]
+        #X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, a*r, b*r
+        #return tf.reshape(X, (self.batch_size, a*r, b*r, 1))
+        
     def _phase_shift(self, I, r):
         # Helper function with main phase shift operation
         bsize, a, b, c = I.get_shape().as_list()
         X = tf.reshape(I, (self.batch_size, a, b, r, r))
+        X = tf.transpose(X, (0, 1, 2, 4, 3))  # bsize, a, b, 1, 1
         X = tf.split(X, a, 1)  # a, [bsize, b, r, r]
         X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, b, a*r, r
         X = tf.split(X, b, 1)  # b, [bsize, a*r, r]
-        X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, a*r, b*r
+        X = tf.concat([tf.squeeze(x) for x in X], 2)  #bsize, a*r, b*r
         return tf.reshape(X, (self.batch_size, a*r, b*r, 1))
         
     def PS(self, X, r):
@@ -77,10 +88,10 @@ class ESPCN():
         checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         
-        # Check if checkpoint exists 
+        # Test if checkpoint exists 
         if ckpt and ckpt.model_checkpoint_path:
-            ckpt_path = str(ckpt.model_checkpoint_path) # convert the unicode to string
-            self.saver.restore(self.session, os.path.join(os.getcwd(), ckpt_path))
+            ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
+            self.saver.restore(self.session, os.path.join(checkpoint_dir, ckpt_name))
             print(" [*] Load SUCCESS! %s" % chkpt_path)
         else:
             print(" [!] Load failed...")

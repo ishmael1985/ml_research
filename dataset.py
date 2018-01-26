@@ -125,8 +125,11 @@ class DatasetFromFolder():
                                                    cropped_width // scale),
                                             interpolation=Image.BICUBIC)])
         input_ = composed_transform(label_)
-
-        return np.array(input_.split()[0]), np.array(label_.split()[0])
+        
+        if self.channels == 3:
+            return np.array(input_.convert('RGB')), np.array(label_.convert('RGB'))
+        else:
+            return np.array(input_.split()[0]), np.array(label_.split()[0])
 
     def make_subimages(self, image):
         with open("config.json", "r") as config:
@@ -135,30 +138,33 @@ class DatasetFromFolder():
         block_size = params["block_size"]
         stride = params["stride"]
         scale = params["scale"]
+        self.channels = params["channels"]
         input_, label_, = self._preprocess(image, scale)
         
         # Make subimages of LR and HR
         # Input
-        h, w = input_.shape
+        if self.channels == 3:
+            h, w, _ = input_.shape
+        else:
+            h, w = input_.shape
         for x in range(0, h - block_size + 1, stride):
             for y in range(0, w - block_size + 1, stride):
                 sub_input = input_[x: x + block_size, y: y + block_size] # 17 * 17
 
                 # Reshape sub-inputs
-                sub_input = sub_input.reshape([block_size, block_size, 1])
+                sub_input = sub_input.reshape([block_size, block_size, self.channels])
                 # Normalize
                 sub_input =  sub_input / 255.0
                 # Append sub-input to list of sub-inputs for the image 
                 self.sub_inputs.append(sub_input)
 
         # Label
-        h, w = label_.shape
-        for x in range(0, h - block_size * scale + 1, stride * scale):
-            for y in range(0, w - block_size * scale + 1, stride * scale):
+        for x in range(0, h * scale - block_size * scale + 1, stride * scale):
+            for y in range(0, w * scale - block_size * scale + 1, stride * scale):
                 sub_label = label_[x: x + block_size * scale, y: y + block_size * scale] # 17r * 17r
                 
                 # Reshape sub-label
-                sub_label = sub_label.reshape([block_size * scale , block_size * scale, 1])
+                sub_label = sub_label.reshape([block_size * scale , block_size * scale, self.channels])
                 # Normalize
                 sub_label =  sub_label / 255.0
                 # Append sub-label to list of sub-labels for the image 
