@@ -162,7 +162,7 @@ class DatasetFromFolder():
                 # Normalize
                 sub_label =  sub_label / 255.0
                 # Append sub-label to list of sub-labels for the image 
-                self.sub_labels.append(sub_input)
+                self.sub_labels.append(sub_label)
 
     def transform(self, image):
         image_transforms = []
