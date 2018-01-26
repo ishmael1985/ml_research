@@ -123,10 +123,10 @@ class ESPCN():
         
         for ep in range(config.epoch):
             # Run by batch images
-            batch_idxs = len(input_)
+            batch_idxs = len(input_) // config.batch_size
             for idx in range(0, batch_idxs):
-                batch_inputs = input_[idx * self.batch_size : (idx + 1) * self.batch_size]
-                batch_labels = label_[idx * self.batch_size : (idx + 1) * self.batch_size]
+                batch_inputs = input_[idx * config.batch_size : (idx + 1) * config.batch_size]
+                batch_labels = label_[idx * config.batch_size : (idx + 1) * config.batch_size]
                 
                 counter += 1
                 _, err = self.session.run([optimizer, self.loss], feed_dict={self.inputs: batch_inputs, self.labels: batch_labels})

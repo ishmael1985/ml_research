@@ -196,7 +196,7 @@ class DatasetFromFolder():
             if self.rotation:
                 # Get new input size for the maximum area of rotated image if downsampled
                 if self.scale:
-                    input_width, input_height = transformed.size[0], transformed.size[1]
+                    input_width, input_height = transformed.size
                 transformed = rotate_max_area(transformed, input_width,
                                               input_height, self.rotation)
         else:
