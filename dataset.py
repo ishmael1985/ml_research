@@ -86,7 +86,6 @@ class DatasetFromFolder():
         self.scale = scale
         self.rotation = rotation
         self.hdf5_path = hdf5_path
-        self.transformed = None
         self.sub_inputs = []
         self.sub_labels = []
 
