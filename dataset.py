@@ -20,7 +20,7 @@ def _get_rotated_rect_max_area(w, h, angle):
         return 0,0
 
     width_is_longer = w >= h
-    side_long, side_short = (w,h) if width_is_longer else (h,w)
+    side_long, side_short = (w, h) if width_is_longer else (h, w)
 
     # since the solutions for angle, -angle and 180-angle are all the same,
     # if suffices to look at the first quadrant and the absolute values of sin,cos:
@@ -110,7 +110,7 @@ class DatasetFromFolder():
         return len(self.image_filenames)
 
     def _modcrop(self, image, scale):
-        input_width, input_height = image.size[0], image.size[1]
+        input_width, input_height = image.size
         cropped_width, cropped_height = calculate_cropped_size(input_width, input_height, scale)
     
         center_crop = Compose([CenterCrop(size=(cropped_height, cropped_width))])
@@ -120,14 +120,14 @@ class DatasetFromFolder():
     def _preprocess(self, image, scale):
         label_ = self._modcrop(image, scale)
     
-        cropped_width, cropped_height = label_.size[0], label_.size[1]
+        cropped_width, cropped_height = label_.size
         composed_transform = Compose([Resize(size=(cropped_height // scale,
                                                    cropped_width // scale),
                                             interpolation=Image.BICUBIC)])
         input_ = composed_transform(label_)
         
         if self.channels == 3:
-            return np.array(input_.convert('RGB')), np.array(label_.convert('RGB'))
+            return np.array(input_), np.array(label_)
         else:
             return np.array(input_.split()[0]), np.array(label_.split()[0])
 
@@ -147,14 +147,15 @@ class DatasetFromFolder():
             h, w, _ = input_.shape
         else:
             h, w = input_.shape
+            
         for x in range(0, h - block_size + 1, stride):
             for y in range(0, w - block_size + 1, stride):
                 sub_input = input_[x: x + block_size, y: y + block_size] # 17 * 17
-
-                # Reshape sub-inputs
-                sub_input = sub_input.reshape([block_size, block_size, self.channels])
+                
                 # Normalize
                 sub_input =  sub_input / 255.0
+                # Reshape sub-inputs
+                sub_input = sub_input.reshape([block_size, block_size, self.channels])
                 # Append sub-input to list of sub-inputs for the image 
                 self.sub_inputs.append(sub_input)
 
@@ -163,16 +164,16 @@ class DatasetFromFolder():
             for y in range(0, w * scale - block_size * scale + 1, stride * scale):
                 sub_label = label_[x: x + block_size * scale, y: y + block_size * scale] # 17r * 17r
                 
-                # Reshape sub-label
-                sub_label = sub_label.reshape([block_size * scale , block_size * scale, self.channels])
                 # Normalize
                 sub_label =  sub_label / 255.0
+                # Reshape sub-label
+                sub_label = sub_label.reshape([block_size * scale , block_size * scale, self.channels])
                 # Append sub-label to list of sub-labels for the image 
                 self.sub_labels.append(sub_label)
 
     def transform(self, image):
         image_transforms = []
-        input_width, input_height = image.size[0], image.size[1]
+        input_width, input_height = image.size
         
         if self.rotation:
             image_transforms.append(RandomRotation(degrees=(self.rotation,

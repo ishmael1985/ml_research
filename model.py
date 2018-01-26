@@ -11,9 +11,7 @@ class ESPCN():
     def __init__(self, session, batch_size):
         self.session = session
         self.batch_size = batch_size
-        self._build_model()
-
-    def _build_model(self):
+        
         with open("config.json", "r") as config:
             params = json.load(config)
 
@@ -21,6 +19,9 @@ class ESPCN():
         self.channels = params["channels"]
         self.scale = params["scale"]
         
+        self._build_model()
+
+    def _build_model(self):
         self.inputs = tf.placeholder(tf.float32, [None, self.patch_size, self.patch_size, self.channels], name='inputs')
         self.labels = tf.placeholder(tf.float32, [None, self.patch_size * self.scale , self.patch_size * self.scale, self.channels], name='labels')
         
@@ -70,7 +71,7 @@ class ESPCN():
         X = tf.split(X, a, 1)  # a, [bsize, b, r, r]
         X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, b, a*r, r
         X = tf.split(X, b, 1)  # b, [bsize, a*r, r]
-        X = tf.concat([tf.squeeze(x) for x in X], 2)  #bsize, a*r, b*r
+        X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, a*r, b*r
         return tf.reshape(X, (self.batch_size, a*r, b*r, 1))
         
     def PS(self, X, r):
@@ -111,7 +112,7 @@ class ESPCN():
         input_, label_ = read_hdf5(config.hdf5_path)
 
         # Stochastic gradient descent with the standard backpropagation
-        optimizer = tf.train.GradientDescentOptimizer(config.learning_rate).minimize(self.loss)
+        optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(self.loss)
         
         tf.initialize_all_variables().run()
 
@@ -132,7 +133,6 @@ class ESPCN():
 
                 if counter % 10 == 0:
                     print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" % ((ep+1), counter, time.time()-time_, err))
-                    #print(label_[1] - self.pred.eval({self.images: input_})[1],'loss:]',err)
                 if counter % 500 == 0:
                     self._save(config.checkpoint_dir, counter)
             
