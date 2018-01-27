@@ -53,15 +53,15 @@ class ESPCN():
         
         return tf.nn.tanh(ps)
 
-    #def _phase_shift(self, I, r):
-        # Helper function with main phase shift operation
-        #bsize, a, b, c = I.get_shape().as_list()
-        #X = tf.reshape(I, (self.batch_size, a, b, r, r))
-        #X = tf.split(X, a, 1)  # a, [bsize, b, r, r]
-        #X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, b, a*r, r
-        #X = tf.split(X, b, 1)  # b, [bsize, a*r, r]
-        #X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, a*r, b*r
-        #return tf.reshape(X, (self.batch_size, a*r, b*r, 1))
+##    def _phase_shift(self, I, r):
+##        # Helper function with main phase shift operation
+##        bsize, a, b, c = I.get_shape().as_list()
+##        X = tf.reshape(I, (self.batch_size, a, b, r, r))
+##        X = tf.split(X, a, 1)  # a, [bsize, b, r, r]
+##        X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, b, a*r, r
+##        X = tf.split(X, b, 1)  # b, [bsize, a*r, r]
+##        X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, a*r, b*r
+##        return tf.reshape(X, (self.batch_size, a*r, b*r, 1))
         
     def _phase_shift(self, I, r):
         # Helper function with main phase shift operation
@@ -93,9 +93,9 @@ class ESPCN():
         if ckpt and ckpt.model_checkpoint_path:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
             self.saver.restore(self.session, os.path.join(checkpoint_dir, ckpt_name))
-            print(" [*] Load SUCCESS! %s" % chkpt_path)
+            print("[*] Load SUCCESS!")
         else:
-            print(" [!] Load failed...")
+            print("[!] Load failed...")
             
     def _save(self, checkpoint_dir, step):
         model_name = "ESPCN.model"
@@ -110,8 +110,7 @@ class ESPCN():
 
     def train(self, config):
         input_, label_ = read_hdf5(config.hdf5_path)
-
-        # Stochastic gradient descent with the standard backpropagation
+        
         optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(self.loss)
         
         tf.initialize_all_variables().run()
