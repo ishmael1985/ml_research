@@ -28,29 +28,25 @@ def main(_):
     sampled_dataset = DatasetFromFolder(image_dir=FLAGS.image_folder,
                                         sample_size=FLAGS.sample_size,
                                         scale=FLAGS.scale)
-    
-    for ground_truth in sampled_dataset:
-        downsampled_image = sampled_dataset.transform(ground_truth)
-        out_img = None
-        with tf.Session() as session:
-            espcn = ESPCN(session,
-                          checkpoint_dir=FLAGS.checkpoint_dir,
-                          test_image=downsampled_image) 
-            out_img = espcn.test()
+    with tf.Session() as session:
+        espcn = ESPCN(session)
+            
+        for ground_truth in sampled_dataset:
+            downsampled_image = sampled_dataset.transform(ground_truth)
+            out_img = espcn.test(FLAGS, downsampled_image)
+            
+            out_img *= 255.0
+            out_img = out_img.clip(0, 255)
+            
+            height, width = out_img.shape[:2]
+            ground_truth = get_center_crop(ground_truth, width, height)
+            gt_img_y = np.asarray(ground_truth.split()[0])
+
+            #img = Image.fromarray(out_img, 'L')
+            #img.show()
+
+            average_psnr += compute_psnr(out_img, gt_img_y)
         
-        out_img *= 255.0
-        out_img = out_img.clip(0, 255)
-        
-        height, width = out_img.shape[:2]
-        ground_truth = get_center_crop(ground_truth, width, height)
-        gt_img_y = np.asarray(ground_truth.split()[0])
-
-        #img = Image.fromarray(out_img, 'L')
-        #img.show()
-
-        average_psnr += compute_psnr(out_img, gt_img_y)
-        print(average_psnr)
-
     print("Upscale factor = ", FLAGS.scale)
     print("Average PSNR for {} samples = {}".format(FLAGS.sample_size,
                                                     average_psnr / FLAGS.sample_size))

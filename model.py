@@ -9,9 +9,8 @@ from utils import read_hdf5
 
 
 class ESPCN:
-    def __init__(self, session, checkpoint_dir, test_image=None):
+    def __init__(self, session):
         self.session = session
-        self.checkpoint_dir = checkpoint_dir
         
         with open("config.json", "r") as config:
             params = json.load(config)
@@ -19,13 +18,7 @@ class ESPCN:
         self.patch_size = params["block_size"]
         self.channels = params["channels"]
         self.scale = params["scale"]
-
-        if test_image and self.channels == 1:
-            self.test_image = test_image.split()[0]
-        else:
-            self.test_image = test_image
-        
-        self._build_model()
+        self.test_image = None
 
     def _build_model(self):
         if not self.test_image:
@@ -113,16 +106,17 @@ class ESPCN:
                         global_step=step)
 
     def train(self, config):
-        input_, label_ = read_hdf5(config.hdf5_path)
-        
+        self._build_model()
         optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(self.loss)
-        
+
         tf.initialize_all_variables().run()
+
+        input_, label_ = read_hdf5(config.hdf5_path)
 
         counter = 0
         time_ = time.time()
 
-        self._load(self.checkpoint_dir)
+        self._load(config.checkpoint_dir)
         
         for ep in range(config.epoch):
             # Run by batch images
@@ -137,10 +131,16 @@ class ESPCN:
                 if counter % 10 == 0:
                     print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" % ((ep+1), counter, time.time()-time_, err))
                 if counter % 500 == 0:
-                    self._save(self.checkpoint_dir, counter)
+                    self._save(config.checkpoint_dir, counter)
 
-    def test(self):
-        if not self._load(self.checkpoint_dir):
+    def test(self, config, test_image):
+        if test_image and self.channels == 1:
+            self.test_image = test_image.split()[0]
+        else:
+            self.test_image = test_image
+            
+        self._build_model()
+        if not self._load(config.checkpoint_dir):
             return False
 
         img = np.asarray(self.test_image)
