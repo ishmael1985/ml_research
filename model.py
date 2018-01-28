@@ -18,7 +18,10 @@ class ESPCN:
         self.patch_size = params["block_size"]
         self.channels = params["channels"]
         self.scale = params["scale"]
+
         self.test_image = None
+        self.saver = None
+        self.is_loaded = False
 
     def _build_model(self):
         if not self.test_image:
@@ -29,24 +32,25 @@ class ESPCN:
             self.inputs = tf.placeholder(tf.float32, [None, self.height, self.width, self.channels], name='inputs')
             self.labels = tf.placeholder(tf.float32, [None, self.height * self.scale , self.width * self.scale, self.channels], name='labels')
 
-        self.weights = {
-            'w1': tf.Variable(tf.random_normal([5, 5, self.channels, 64], stddev=np.sqrt(2.0/25/3)), name='w1'),
-            'w2': tf.Variable(tf.random_normal([3, 3, 64, 32], stddev=np.sqrt(2.0/9/64)), name='w2'),
-            'w3': tf.Variable(tf.random_normal([3, 3, 32, self.channels * self.scale * self.scale ], stddev=np.sqrt(2.0/9/32)), name='w3')
-        }
+        if not self.saver:
+            self.weights = {
+                'w1': tf.Variable(tf.random_normal([5, 5, self.channels, 64], stddev=np.sqrt(2.0/25/3)), name='w1'),
+                'w2': tf.Variable(tf.random_normal([3, 3, 64, 32], stddev=np.sqrt(2.0/9/64)), name='w2'),
+                'w3': tf.Variable(tf.random_normal([3, 3, 32, self.channels * self.scale * self.scale ], stddev=np.sqrt(2.0/9/32)), name='w3')
+            }
 
-        self.biases = {
-            'b1': tf.Variable(tf.zeros([64], name='b1')),
-            'b2': tf.Variable(tf.zeros([32], name='b2')),
-            'b3': tf.Variable(tf.zeros([self.channels * self.scale * self.scale ], name='b3'))
-        }
+            self.biases = {
+                'b1': tf.Variable(tf.zeros([64], name='b1')),
+                'b2': tf.Variable(tf.zeros([32], name='b2')),
+                'b3': tf.Variable(tf.zeros([self.channels * self.scale * self.scale ], name='b3'))
+            }
+
+            self.saver = tf.train.Saver()
         
         self.pred = self._model()
         
         # Loss function (MSE)
         self.loss = tf.reduce_mean(tf.square(self.labels - self.pred))
-
-        self.saver = tf.train.Saver()
 
     def _model(self):
         conv1 = tf.nn.relu(tf.nn.conv2d(self.inputs, self.weights['w1'], strides=[1,1,1,1], padding='SAME') + self.biases['b1'])
@@ -89,10 +93,12 @@ class ESPCN:
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
             self.saver.restore(self.session, os.path.join(checkpoint_dir, ckpt_name))
             print("[*] Load SUCCESS!")
-            return True
+            self.is_loaded = True
         else:
             print("[!] Load failed...")
-            return False
+            self.is_loaded = False
+
+        return self.is_loaded
             
     def _save(self, checkpoint_dir, step):
         model_name = "ESPCN.model"
@@ -140,8 +146,10 @@ class ESPCN:
             self.test_image = test_image
             
         self._build_model()
-        if not self._load(config.checkpoint_dir):
-            return False
+
+        if not self.is_loaded:
+            if not self._load(config.checkpoint_dir):
+                return False
 
         img = np.asarray(self.test_image)
         img = img / 255.0

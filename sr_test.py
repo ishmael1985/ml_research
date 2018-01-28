@@ -42,7 +42,7 @@ def main(_):
             ground_truth = get_center_crop(ground_truth, width, height)
             gt_img_y = np.asarray(ground_truth.split()[0])
 
-            #img = Image.fromarray(out_img, 'L')
+            #img = Image.fromarray(out_img.astype('uint8'), 'L')
             #img.show()
 
             average_psnr += compute_psnr(out_img, gt_img_y)
