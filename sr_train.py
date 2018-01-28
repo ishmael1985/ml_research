@@ -20,7 +20,8 @@ def main(_):
     makedirs(FLAGS.checkpoint_dir, exist_ok=True)
     
     with tf.Session() as session:
-        espcn = ESPCN(session, batch_size=FLAGS.batch_size)
+        espcn = ESPCN(session,
+                      checkpoint_dir=FLAGS.checkpoint_dir)
 
         espcn.train(FLAGS)
 

@@ -1,5 +1,6 @@
 import tensorflow as tf
 import numpy as np
+import sys
 import time
 import os
 import json
@@ -7,10 +8,10 @@ import json
 from utils import read_hdf5
 
 
-class ESPCN():
-    def __init__(self, session, batch_size):
+class ESPCN:
+    def __init__(self, session, checkpoint_dir, test_image=None):
         self.session = session
-        self.batch_size = batch_size
+        self.checkpoint_dir = checkpoint_dir
         
         with open("config.json", "r") as config:
             params = json.load(config)
@@ -18,13 +19,23 @@ class ESPCN():
         self.patch_size = params["block_size"]
         self.channels = params["channels"]
         self.scale = params["scale"]
+
+        if test_image and self.channels == 1:
+            self.test_image = test_image.split()[0]
+        else:
+            self.test_image = test_image
         
         self._build_model()
 
     def _build_model(self):
-        self.inputs = tf.placeholder(tf.float32, [None, self.patch_size, self.patch_size, self.channels], name='inputs')
-        self.labels = tf.placeholder(tf.float32, [None, self.patch_size * self.scale , self.patch_size * self.scale, self.channels], name='labels')
-        
+        if not self.test_image:
+            self.inputs = tf.placeholder(tf.float32, [None, self.patch_size, self.patch_size, self.channels], name='inputs')
+            self.labels = tf.placeholder(tf.float32, [None, self.patch_size * self.scale , self.patch_size * self.scale, self.channels], name='labels')
+        else:
+            self.width, self.height = self.test_image.size
+            self.inputs = tf.placeholder(tf.float32, [None, self.height, self.width, self.channels], name='inputs')
+            self.labels = tf.placeholder(tf.float32, [None, self.height * self.scale , self.width * self.scale, self.channels], name='labels')
+
         self.weights = {
             'w1': tf.Variable(tf.random_normal([5, 5, self.channels, 64], stddev=np.sqrt(2.0/25/3)), name='w1'),
             'w2': tf.Variable(tf.random_normal([3, 3, 64, 32], stddev=np.sqrt(2.0/9/64)), name='w2'),
@@ -37,14 +48,14 @@ class ESPCN():
             'b3': tf.Variable(tf.zeros([self.channels * self.scale * self.scale ], name='b3'))
         }
         
-        self.pred = self.model()
+        self.pred = self._model()
         
         # Loss function (MSE)
         self.loss = tf.reduce_mean(tf.square(self.labels - self.pred))
 
         self.saver = tf.train.Saver()
 
-    def model(self):
+    def _model(self):
         conv1 = tf.nn.relu(tf.nn.conv2d(self.inputs, self.weights['w1'], strides=[1,1,1,1], padding='SAME') + self.biases['b1'])
         conv2 = tf.nn.relu(tf.nn.conv2d(conv1, self.weights['w2'], strides=[1,1,1,1], padding='SAME') + self.biases['b2'])
         conv3 = tf.nn.conv2d(conv2, self.weights['w3'], strides=[1,1,1,1], padding='SAME') + self.biases['b3']
@@ -53,26 +64,17 @@ class ESPCN():
         
         return tf.nn.tanh(ps)
 
-##    def _phase_shift(self, I, r):
-##        # Helper function with main phase shift operation
-##        bsize, a, b, c = I.get_shape().as_list()
-##        X = tf.reshape(I, (self.batch_size, a, b, r, r))
-##        X = tf.split(X, a, 1)  # a, [bsize, b, r, r]
-##        X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, b, a*r, r
-##        X = tf.split(X, b, 1)  # b, [bsize, a*r, r]
-##        X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, a*r, b*r
-##        return tf.reshape(X, (self.batch_size, a*r, b*r, 1))
-        
     def _phase_shift(self, I, r):
         # Helper function with main phase shift operation
         bsize, a, b, c = I.get_shape().as_list()
-        X = tf.reshape(I, (self.batch_size, a, b, r, r))
+        bsize = tf.shape(I)[0] # Handling Dimension(None) type for undefined batch dim
+        X = tf.reshape(I, (bsize, a, b, r, r))
         X = tf.transpose(X, (0, 1, 2, 4, 3))  # bsize, a, b, 1, 1
         X = tf.split(X, a, 1)  # a, [bsize, b, r, r]
-        X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, b, a*r, r
+        X = tf.concat([tf.squeeze(x, axis=1) for x in X], 2)  # bsize, b, a*r, r
         X = tf.split(X, b, 1)  # b, [bsize, a*r, r]
-        X = tf.concat([tf.squeeze(x) for x in X], 2)  # bsize, a*r, b*r
-        return tf.reshape(X, (self.batch_size, a*r, b*r, 1))
+        X = tf.concat([tf.squeeze(x, axis=1) for x in X], 2)  # bsize, a*r, b*r
+        return tf.reshape(X, (bsize, a*r, b*r, 1))
         
     def PS(self, X, r):
         # Main OP that you can arbitrarily use in you tensorflow code
@@ -94,8 +96,10 @@ class ESPCN():
             ckpt_name = os.path.basename(ckpt.model_checkpoint_path)
             self.saver.restore(self.session, os.path.join(checkpoint_dir, ckpt_name))
             print("[*] Load SUCCESS!")
+            return True
         else:
             print("[!] Load failed...")
+            return False
             
     def _save(self, checkpoint_dir, step):
         model_name = "ESPCN.model"
@@ -118,7 +122,7 @@ class ESPCN():
         counter = 0
         time_ = time.time()
 
-        self._load(config.checkpoint_dir)
+        self._load(self.checkpoint_dir)
         
         for ep in range(config.epoch):
             # Run by batch images
@@ -133,5 +137,19 @@ class ESPCN():
                 if counter % 10 == 0:
                     print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" % ((ep+1), counter, time.time()-time_, err))
                 if counter % 500 == 0:
-                    self._save(config.checkpoint_dir, counter)
-            
+                    self._save(self.checkpoint_dir, counter)
+
+    def test(self):
+        if not self._load(self.checkpoint_dir):
+            return False
+
+        img = np.asarray(self.test_image)
+        img = img / 255.0
+        
+        result = self.pred.eval({self.inputs: img.reshape(1,
+                                                          self.height,
+                                                          self.width,
+                                                          self.channels)})
+        return np.squeeze(result)
+
+

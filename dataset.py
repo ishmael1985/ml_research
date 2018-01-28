@@ -10,6 +10,7 @@ from os.path import join, exists, basename, splitext, dirname, realpath
 from shutil import copy2
 from PIL import Image
 from torchvision.transforms import CenterCrop, Resize, RandomRotation, Compose
+from utils import is_image_file, load_img
 
 
 def _get_rotated_rect_max_area(w, h, angle):
@@ -49,12 +50,6 @@ def rotate_max_area(rotated_image, width, height, angle):
     x2 = x1 + int(max_width)
     
     return rotated_image.crop(box=(x1,y1,x2,y2))
-
-def is_image_file(filename):
-    return any(filename.endswith(extension) for extension in [".bmp", ".png", ".jpg", ".jpeg"])
-
-def load_img(filepath):
-    return Image.open(filepath).convert('YCbCr')
     
 def calculate_cropped_size(width, height, scale_factor):
     cropped_width = width - (width % scale_factor)
@@ -63,7 +58,7 @@ def calculate_cropped_size(width, height, scale_factor):
     return cropped_width, cropped_height
     
 
-class DatasetFromFolder():
+class DatasetFromFolder:
     def __init__(self, image_dir, sample_size=-1, rotation=None, scale=None, hdf5_path='', dataset_csv=''):
         self.image_dir = image_dir
         self.script_dir = dirname(realpath(__file__))
