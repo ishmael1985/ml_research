@@ -7,7 +7,7 @@ parser.add_argument('--rotate', type=int, required=False, help="rotation in degr
 parser.add_argument('--scale', type=int, required=False, help="downsampling factor")
 #parser.add_argument('--brightness', type=float, required=False, help="brightness factor")
 parser.add_argument('--sample_size', type=int, required=False, default=-1, help="number of samples to generate")
-parser.add_argument('--image_folder', type=str, required=True, help="number of samples to generate")
+parser.add_argument('--image_folder', type=str, required=True, help="path to image dataset")
 parser.add_argument('--dataset_csv', type=str, required=False, help="specified dataset to load")
 parser.add_argument('--hdf5_path', type=str, required=False, help="output hdf5 file")
 parser.add_argument('--save_images', action='store_true', help="save images")

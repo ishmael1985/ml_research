@@ -115,7 +115,7 @@ class ESPCN:
         self._build_model()
         optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(self.loss)
 
-        tf.initialize_all_variables().run()
+        tf.global_variables_initializer().run()
 
         input_, label_ = read_hdf5(config.hdf5_path)
 
@@ -139,7 +139,7 @@ class ESPCN:
                 if counter % 500 == 0:
                     self._save(config.checkpoint_dir, counter)
 
-    def test(self, config, test_image):
+    def test(self, checkpoint_dir, test_image):
         if test_image and self.channels == 1:
             self.test_image = test_image.split()[0]
         else:
@@ -148,7 +148,7 @@ class ESPCN:
         self._build_model()
 
         if not self.is_loaded:
-            if not self._load(config.checkpoint_dir):
+            if not self._load(checkpoint_dir):
                 return False
 
         img = np.asarray(self.test_image)
