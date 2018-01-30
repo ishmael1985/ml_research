@@ -4,9 +4,11 @@ import numpy as np
 import h5py
 import json
 import csv
+import os
+import pathlib
 
-from os import listdir, makedirs
-from os.path import join, exists, splitext, dirname, realpath
+from os import walk, makedirs
+from os.path import join, exists, splitext, dirname, basename, realpath
 from shutil import copy2
 from PIL import Image
 from torchvision.transforms import CenterCrop, Resize, RandomRotation, Compose
@@ -30,13 +32,13 @@ def _get_rotated_rect_max_area(w, h, angle):
         # half constrained case: two crop corners touch the longer side,
         #   the other two corners are on the mid-line parallel to the longer line
         x = 0.5*side_short
-        wr,hr = (x/sin_a, x/cos_a) if width_is_longer else (x/cos_a, x/sin_a)
+        wr, hr = (x/sin_a, x/cos_a) if width_is_longer else (x/cos_a, x/sin_a)
     else:
         # fully constrained case: crop touches all 4 sides
         cos_2a = cos_a*cos_a - sin_a*sin_a
-        wr,hr = (w*cos_a - h*sin_a)/cos_2a, (h*cos_a - w*sin_a)/cos_2a
+        wr, hr = (w*cos_a - h*sin_a)/cos_2a, (h*cos_a - w*sin_a)/cos_2a
 
-    return wr,hr
+    return wr, hr
 
 def rotate_max_area(rotated_image, width, height, angle):
     max_width, max_height = _get_rotated_rect_max_area(width,
@@ -56,7 +58,17 @@ def calculate_cropped_size(width, height, scale_factor):
     cropped_height = height - (height % scale_factor)
     
     return cropped_width, cropped_height
-    
+
+def get_training_images(image_dir):
+    image_files = []
+    for root, dirs, files in walk(image_dir):
+        for file in files:
+            if is_image_file(file):
+                p = pathlib.Path(join(root, file))
+                image_files.append(p.relative_to(image_dir))
+
+    return image_files
+
 
 class DatasetFromFolder:
     def __init__(self, image_dir, sample_size=-1, rotation=None, scale=None,
@@ -72,14 +84,15 @@ class DatasetFromFolder:
                 dataset_csv = csv.reader(csvfile)
                 for row in dataset_csv:
                     for image_file in row:
-                        if exists(join(image_dir, image_file)):
+                        if exists(join(self.image_dir, image_file)):
                             self.image_filenames.append(image_file)
                 
         if not self.image_filenames:
-            self.image_filenames = [x for x in listdir(image_dir) if is_image_file(join(image_dir, x))]
+            self.image_filenames = get_training_images(self.image_dir)
             if sample_size > 0:
                 self.image_filenames = random.sample(self.image_filenames,
                                                      sample_size)
+
         self.scale = scale
         self.rotation = rotation
         self.hdf5_path = hdf5_path
@@ -203,7 +216,7 @@ class DatasetFromFolder:
         
     def save_image(self, image):
         makedirs(self.dest_dir, exist_ok=True)
-        output_filename = self.current_image_file
+        output_filename = basename(self.current_image_file)
         label =  ''
 
         if self.rotation:
