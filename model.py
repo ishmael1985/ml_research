@@ -111,25 +111,25 @@ class ESPCN:
                         os.path.join(checkpoint_dir, model_name),
                         global_step=step)
 
-    def train(self, config):
+    def train(self, hdf5_path, checkpoint_dir, learning_rate, batch_size, epochs):
         self._build_model()
-        optimizer = tf.train.AdamOptimizer(learning_rate=config.learning_rate).minimize(self.loss)
+        optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
 
         tf.global_variables_initializer().run()
 
-        input_, label_ = read_hdf5(config.hdf5_path)
+        input_, label_ = read_hdf5(hdf5_path)
 
         counter = 0
         time_ = time.time()
-
-        self._load(config.checkpoint_dir)
         
-        for epoch in range(config.epochs):
+        self._load(checkpoint_dir)
+        
+        for epoch in range(epochs):
             # Run by batch images
-            batch_idxs = len(input_) // config.batch_size
+            batch_idxs = len(input_) // batch_size
             for idx in range(0, batch_idxs):
-                batch_inputs = input_[idx * config.batch_size : (idx + 1) * config.batch_size]
-                batch_labels = label_[idx * config.batch_size : (idx + 1) * config.batch_size]
+                batch_inputs = input_[idx * batch_size : (idx + 1) * batch_size]
+                batch_labels = label_[idx * batch_size : (idx + 1) * batch_size]
                 
                 counter += 1
                 _, err = self.session.run([optimizer, self.loss], feed_dict={self.inputs: batch_inputs, self.labels: batch_labels})
@@ -137,7 +137,7 @@ class ESPCN:
                 if counter % 10 == 0:
                     print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" % ((epoch+1), counter, time.time()-time_, err))
                 if counter % 500 == 0:
-                    self._save(config.checkpoint_dir, counter)
+                    self._save(checkpoint_dir, counter)
 
     def test(self, checkpoint_dir, test_image):
         if test_image and self.channels == 1:
