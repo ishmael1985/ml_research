@@ -83,10 +83,11 @@ def main():
             
     if opt.save_test:
         sampled_dataset.save_dataset("test.csv")
-        
+
+    sample_size = len(sampled_dataset.image_filenames)
     print("Upscale factor = ", opt.scale)
-    print("Average PSNR for {} samples = {}".format(opt.sample_size,
-                                                    average_psnr / opt.sample_size))
+    print("Average PSNR for {} samples = {}".format(sample_size,
+                                                    average_psnr / sample_size))
 
 if __name__ == "__main__":
     main()
