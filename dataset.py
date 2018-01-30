@@ -65,7 +65,7 @@ def get_training_images(image_dir):
         for file in files:
             if is_image_file(file):
                 p = pathlib.Path(join(root, file))
-                image_files.append(p.relative_to(image_dir))
+                image_files.append(str(p.relative_to(image_dir)))
 
     return image_files
 

@@ -124,7 +124,7 @@ class ESPCN:
 
         self._load(config.checkpoint_dir)
         
-        for ep in range(config.epoch):
+        for epoch in range(config.epochs):
             # Run by batch images
             batch_idxs = len(input_) // config.batch_size
             for idx in range(0, batch_idxs):
@@ -135,7 +135,7 @@ class ESPCN:
                 _, err = self.session.run([optimizer, self.loss], feed_dict={self.inputs: batch_inputs, self.labels: batch_labels})
 
                 if counter % 10 == 0:
-                    print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" % ((ep+1), counter, time.time()-time_, err))
+                    print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" % ((epoch+1), counter, time.time()-time_, err))
                 if counter % 500 == 0:
                     self._save(config.checkpoint_dir, counter)
 

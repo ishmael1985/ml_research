@@ -5,7 +5,7 @@ from os import makedirs
 from model import ESPCN
 
 flags = tf.app.flags
-flags.DEFINE_integer("epoch", 15000, "Number of epoch [15000]")
+flags.DEFINE_integer("epochs", 15000, "Number of epoch [15000]")
 flags.DEFINE_integer("batch_size", 128, "The size of batch images [128]")
 flags.DEFINE_float("learning_rate", 1e-4, "The learning rate of gradient descent algorithm [1e-4]")
 flags.DEFINE_string("checkpoint_dir", "checkpoint", "Name of checkpoint directory [checkpoint]")
