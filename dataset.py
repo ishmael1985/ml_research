@@ -59,7 +59,7 @@ def calculate_cropped_size(width, height, scale_factor):
     
     return cropped_width, cropped_height
 
-def get_training_images(image_dir):
+def get_images(image_dir):
     image_files = []
     for root, dirs, files in walk(image_dir):
         for file in files:
@@ -88,7 +88,7 @@ class DatasetFromFolder:
                             self.image_filenames.append(image_file)
                 
         if not self.image_filenames:
-            self.image_filenames = get_training_images(self.image_dir)
+            self.image_filenames = get_images(self.image_dir)
             if sample_size > 0:
                 self.image_filenames = random.sample(self.image_filenames,
                                                      sample_size)
@@ -233,8 +233,8 @@ class DatasetFromFolder:
 
         print("Image saved : " + join(self.dest_dir, output_filename))
 
-    def save_dataset(self):
-        csvfile = open(join(self.script_dir, "dataset.csv"), "w")
+    def save_dataset(self, csv_file):
+        csvfile = open(join(self.script_dir, csv_file), "w")
         dataset_csv = csv.writer(csvfile)
         dataset_csv.writerow(self.image_filenames)
         

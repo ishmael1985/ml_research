@@ -82,7 +82,7 @@ def main():
             average_psnr += compute_psnr(out_img, gt_img)
             
     if opt.save_test:
-        sampled_dataset.save_dataset()
+        sampled_dataset.save_dataset("test.csv")
         
     print("Upscale factor = ", opt.scale)
     print("Average PSNR for {} samples = {}".format(opt.sample_size,

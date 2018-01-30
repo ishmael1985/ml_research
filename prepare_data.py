@@ -52,4 +52,4 @@ if __name__ == "__main__":
                 sampled_dataset.save_image(transformed_image)
 
         if opt.save_dataset:
-            sampled_dataset.save_dataset()
+            sampled_dataset.save_dataset("dataset.csv")
