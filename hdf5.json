@@ -1,6 +1,6 @@
 {
     "input_size": 41,
-	"label_size": 41,
+    "label_size": 41,
     "stride": 41,
     "channels": 1,
     "batch_size": 512,

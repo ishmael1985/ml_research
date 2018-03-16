@@ -3,12 +3,15 @@ import numpy as np
 import h5py
 
 from PIL import Image
+from skimage.color import rgb2ycbcr
 
 def is_image_file(filename):
     return any(filename.endswith(extension) for extension in [".bmp", ".png", ".jpg", ".jpeg"])
 
 def load_img(filepath):
-    return Image.open(filepath).convert('YCbCr')
+    rgb_image = Image.open(filepath)
+    ycbcr_image = rgb2ycbcr(np.asarray(rgb_image))
+    return Image.fromarray(ycbcr_image.astype('uint8'))
 
 def read_hdf5(path):
     with h5py.File(path, 'r') as hf:
