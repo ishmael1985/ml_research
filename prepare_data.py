@@ -12,9 +12,15 @@ parser.add_argument('--rotate',
                     required=False,
                     help="rotation in degrees (-180 to 180)")
 parser.add_argument('--scale',
-                    type=int,
+                    type=float,
                     required=False,
                     help="downsampling factor")
+parser.add_argument('--flip_horizontal',
+                    action='store_true',
+                    help="flip image left to right")
+parser.add_argument('--flip_vertical',
+                    action='store_true',
+                    help="flip image top to bottom")
 parser.add_argument('--sample_size',
                     type=int,
                     required=False,
@@ -42,12 +48,12 @@ if __name__ == "__main__":
                            sample_size=opt.sample_size,
                            rotation=opt.rotate,
                            scale=opt.scale,
+                           flip_horizontal=opt.flip_horizontal,
+                           flip_vertical=opt.flip_vertical,
                            dataset_csv=opt.dataset_csv,
                            hdf5_path=opt.hdf5_path) as sampled_dataset:
         for input_image in sampled_dataset:
             transformed_image = sampled_dataset.transform(input_image)
-            if opt.hdf5_path:
-                sampled_dataset.make_subimages(transformed_image)
             if opt.save_images:
                 sampled_dataset.save_image(transformed_image)
 
