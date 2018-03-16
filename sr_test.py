@@ -6,8 +6,11 @@ import csv
 from torchvision.transforms import CenterCrop, Compose, Resize, ToTensor
 from torch.autograd import Variable
 from dataset import DatasetFromFolder
-from utils import compute_psnr
+#from utils import compute_psnr
 from PIL import Image
+from skimage import img_as_ubyte
+from skimage.measure import compare_psnr
+#from imresize import imresize
 
 parser = argparse.ArgumentParser(description='Super resolution test')
 parser.add_argument('--image_folder',
@@ -74,13 +77,16 @@ def main():
                                             scale=scale)
         for ground_truth in sampled_dataset:
             downsampled_image = sampled_dataset.transform(ground_truth)
-            interpolated_image = get_interpolated_image(downsampled_image, scale)
-            y, cb, cr = interpolated_image.split()
+            y = get_interpolated_image(downsampled_image.split()[0], scale)
+
+##            gt_img = np.asarray(ground_truth.split()[0])
+##            downsampled_image = imresize(gt_img, scalar_scale=1/scale)
+##            y = imresize(downsampled_image, scalar_scale=scale)
             
             input_image = Variable(ToTensor()(y)).view(1, -1, y.size[1],
                                                        y.size[0])
-            #input_y = np.array(y).astype(float) / 255.
-            #input_image = Variable(torch.from_numpy(input_y).float()).view(1, -1, input_y.shape[0], input_y.shape[1])
+##            input_y = np.asarray(y).astype(float) / 255.
+##            input_image = Variable(torch.from_numpy(input_y).float()).view(1, -1, input_y.shape[0], input_y.shape[1])
             
             if opt.cuda:
                 model = model.cuda()
@@ -91,20 +97,21 @@ def main():
             out_img = model(input_image)
                     
             out_img = out_img.cpu()
-            out_img_y = out_img.data[0].numpy().astype(float)
-            out_img_y *= 255.0
-            out_img_y = out_img_y.clip(0, 255)
+            out_img_y = out_img.data[0].numpy().clip(0, 1)
             out_img_y = out_img_y[0,:,:]
             
             height, width = out_img_y.shape
             ground_truth = get_center_crop(ground_truth, width, height)
-            gt_img = np.asarray(ground_truth.split()[0])
+            gt_img = img_as_ubyte(np.asarray(ground_truth.split()[0]))
 
-            #img = Image.fromarray(out_img_y.astype('uint8'), 'L')
-            #img.show()
+##            img = Image.fromarray(img_as_ubyte(out_img_y), 'L')
+##            gt = Image.fromarray(gt_img, 'L')
+##            img.show()
+##            y.show()
+##            gt.show()
 
-            psnr = compute_psnr(gt_img, out_img_y)
-            bicubic_psnr = compute_psnr(gt_img, np.asarray(y))
+            psnr = compare_psnr(gt_img, img_as_ubyte(out_img_y))
+            bicubic_psnr = compare_psnr(gt_img, img_as_ubyte(np.asarray(y)))
             
             if opt.save_result:
                 results_csv.writerow([sampled_dataset.current_image_file, scale, psnr])
