@@ -288,7 +288,7 @@ class DatasetFromFolder:
 
         return self.transformed
         
-    def save_image(self, image):
+    def save_image(self):
         makedirs(self.dest_dir, exist_ok=True)
         output_filename = basename(self.current_image_file)
         label =  ''
@@ -304,7 +304,7 @@ class DatasetFromFolder:
 
         if label:
             output_filename = splitext(output_filename)[0] + label + '.png'
-            output_image = image.convert('RGB')
+            output_image =  self.transformed.convert('RGB')
             output_image.save(join(self.dest_dir, output_filename))
         else:
             copy2(join(self.image_dir, self.current_image_file), self.dest_dir)

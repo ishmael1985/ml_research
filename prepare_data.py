@@ -55,7 +55,7 @@ if __name__ == "__main__":
         for input_image in sampled_dataset:
             transformed_image = sampled_dataset.transform(input_image)
             if opt.save_images:
-                sampled_dataset.save_image(transformed_image)
+                sampled_dataset.save_image()
 
         if opt.save_dataset:
             sampled_dataset.save_dataset("dataset.csv")
