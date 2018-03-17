@@ -6,11 +6,9 @@ import csv
 from torchvision.transforms import CenterCrop, Compose, Resize, ToTensor
 from torch.autograd import Variable
 from dataset import DatasetFromFolder
-#from utils import compute_psnr
 from PIL import Image
 from skimage import img_as_ubyte
 from skimage.measure import compare_psnr
-#from imresize import imresize
 
 parser = argparse.ArgumentParser(description='Super resolution test')
 parser.add_argument('--image_folder',
@@ -61,7 +59,6 @@ def get_interpolated_image(image, scale):
 def main():
     opt = parser.parse_args()
 
-    #model = torch.load(opt.model)["model"].module
     model = torch.load(opt.model, map_location=lambda storage, loc: storage)["model"]
     
     if opt.save_result:
@@ -78,16 +75,10 @@ def main():
         for ground_truth in sampled_dataset:
             downsampled_image = sampled_dataset.transform(ground_truth)
             y = get_interpolated_image(downsampled_image.split()[0], scale)
-
-##            gt_img = np.asarray(ground_truth.split()[0])
-##            downsampled_image = imresize(gt_img, scalar_scale=1/scale)
-##            y = imresize(downsampled_image, scalar_scale=scale)
             
             input_image = Variable(ToTensor()(y)).view(1, -1, y.size[1],
                                                        y.size[0])
-##            input_y = np.asarray(y).astype(float) / 255.
-##            input_image = Variable(torch.from_numpy(input_y).float()).view(1, -1, input_y.shape[0], input_y.shape[1])
-            
+
             if opt.cuda:
                 model = model.cuda()
                 input_image = input_image.cuda()
