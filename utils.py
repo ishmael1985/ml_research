@@ -9,9 +9,12 @@ def is_image_file(filename):
     return any(filename.endswith(extension) for extension in [".bmp", ".png", ".jpg", ".jpeg"])
 
 def load_img(filepath):
-    rgb_image = Image.open(filepath)
-    ycbcr_image = rgb2ycbcr(np.asarray(rgb_image))
-    return Image.fromarray(ycbcr_image.astype('uint8'), 'YCbCr')
+    image = Image.open(filepath)
+    if image.mode == 'RGB':
+        ycbcr_image = rgb2ycbcr(np.asarray(image))
+        return Image.fromarray(ycbcr_image.astype('uint8'), 'YCbCr')
+    else:
+        return image
 
 def read_hdf5(path):
     with h5py.File(path, 'r') as hf:
