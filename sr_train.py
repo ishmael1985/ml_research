@@ -1,7 +1,7 @@
 import tensorflow as tf
 import argparse
 
-from model import ESPCN
+from espcn import ESPCN
 
 parser = argparse.ArgumentParser(description='Super resolution training')
 parser.add_argument('--checkpoint_dir',
@@ -18,7 +18,7 @@ parser.add_argument('--epochs',
                     type=int,
                     required=False,
                     default=15000,
-                    help="downsampling factor")
+                    help="numbers of epochs")
 parser.add_argument('--batch_size',
                     type=int,
                     required=False,
@@ -34,12 +34,12 @@ def main():
     opt = parser.parse_args()
     
     with tf.Session() as session:
-        espcn = ESPCN(session)
+        espcn = ESPCN(session, opt.checkpoint_dir)
         espcn.train(hdf5_path=opt.load_hdf5,
-                    checkpoint_dir=opt.checkpoint_dir,
                     learning_rate=opt.learning_rate,
                     batch_size=opt.batch_size,
                     epochs=opt.epochs)
 
 if __name__=='__main__':
     main()
+

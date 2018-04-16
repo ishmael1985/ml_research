@@ -7,17 +7,31 @@ import json
 
 from utils import read_hdf5
 
+def create_variable(name, shape):
+    '''Create a convolution filter variable with the specified name and shape,
+    and initialize it using Xavier initialition.'''
+    initializer = tf.contrib.layers.xavier_initializer_conv2d()
+    variable = tf.Variable(initializer(shape=shape), name=name)
+    return variable
+
+def create_bias_variable(name, shape):
+    '''Create a bias variable with the specified name and shape and initialize
+    it to zero.'''
+    initializer = tf.constant_initializer(value=0.0, dtype=tf.float32)
+    return tf.Variable(initializer(shape=shape), name)
+
 
 class ESPCN:
-    def __init__(self, session):
+    def __init__(self, session, checkpoint_dir):
         self.session = session
+        self.checkpoint_dir = checkpoint_dir
         
-        with open("config.json", "r") as config:
+        with open("hdf5.json", "r") as config:
             params = json.load(config)
 
-        self.patch_size = params["block_size"]
+        self.patch_size = params["input_size"]
         self.channels = params["channels"]
-        self.scale = params["scale"]
+        self.scale = params["upscale_factor"]
 
         self.test_image = None
         self.saver = None
@@ -29,20 +43,19 @@ class ESPCN:
             self.labels = tf.placeholder(tf.float32, [None, self.patch_size * self.scale , self.patch_size * self.scale, self.channels], name='labels')
         else:
             self.width, self.height = self.test_image.size
-            self.inputs = tf.placeholder(tf.float32, [None, self.height, self.width, self.channels], name='inputs')
-            self.labels = tf.placeholder(tf.float32, [None, self.height * self.scale , self.width * self.scale, self.channels], name='labels')
+            self.inputs = tf.placeholder(tf.float32, [None, self.height, self.width, self.channels], name='inputs')    
 
         if not self.saver:
             self.weights = {
-                'w1': tf.Variable(tf.random_normal([5, 5, self.channels, 64], stddev=np.sqrt(2.0/25/3)), name='w1'),
-                'w2': tf.Variable(tf.random_normal([3, 3, 64, 32], stddev=np.sqrt(2.0/9/64)), name='w2'),
-                'w3': tf.Variable(tf.random_normal([3, 3, 32, self.channels * self.scale * self.scale ], stddev=np.sqrt(2.0/9/32)), name='w3')
+                'w1': create_variable('w1', [5, 5, self.channels, 64]),
+                'w2': create_variable('w2', [3, 3, 64, 32]),
+                'w3': create_variable('w3', [3, 3, 32, self.channels * self.scale * self.scale ])
             }
 
             self.biases = {
-                'b1': tf.Variable(tf.zeros([64], name='b1')),
-                'b2': tf.Variable(tf.zeros([32], name='b2')),
-                'b3': tf.Variable(tf.zeros([self.channels * self.scale * self.scale ], name='b3'))
+                'b1': create_bias_variable('b1', [64]),
+                'b2': create_bias_variable('b2', [32]),
+                'b3': create_bias_variable('b3', [self.channels * self.scale * self.scale ])
             }
 
             self.saver = tf.train.Saver()
@@ -50,7 +63,8 @@ class ESPCN:
         self.pred = self._model()
         
         # Loss function (MSE)
-        self.loss = tf.reduce_mean(tf.square(self.labels - self.pred))
+        if not self.test_image:
+            self.loss = tf.reduce_mean(tf.square(self.labels - self.pred))
 
     def _model(self):
         conv1 = tf.nn.relu(tf.nn.conv2d(self.inputs, self.weights['w1'], strides=[1,1,1,1], padding='SAME') + self.biases['b1'])
@@ -82,10 +96,10 @@ class ESPCN:
             X = self._phase_shift(X, r)
         return X
         
-    def _load(self, checkpoint_dir):
+    def _load(self):
         print("[*] Reading Checkpoints...")
         model_dir = "%s_%s_%s" % ("espcn", self.patch_size, self.scale) # give the model name by label_size
-        checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
+        checkpoint_dir = os.path.join(self.checkpoint_dir, model_dir)
         ckpt = tf.train.get_checkpoint_state(checkpoint_dir)
         
         # Test if checkpoint exists 
@@ -100,10 +114,10 @@ class ESPCN:
 
         return self.is_loaded
             
-    def _save(self, checkpoint_dir, step):
+    def _save(self, step):
         model_name = "ESPCN.model"
         model_dir = "%s_%s_%s" % ("espcn", self.patch_size, self.scale)
-        checkpoint_dir = os.path.join(checkpoint_dir, model_dir)
+        checkpoint_dir = os.path.join(self.checkpoint_dir, model_dir)
 
         os.makedirs(checkpoint_dir, exist_ok=True)
 
@@ -111,18 +125,18 @@ class ESPCN:
                         os.path.join(checkpoint_dir, model_name),
                         global_step=step)
 
-    def train(self, hdf5_path, checkpoint_dir, learning_rate, batch_size, epochs):
+    def train(self, hdf5_path, learning_rate, batch_size, epochs):
         self._build_model()
         optimizer = tf.train.AdamOptimizer(learning_rate=learning_rate).minimize(self.loss)
 
         tf.global_variables_initializer().run()
 
+        self._load()
+
         input_, label_ = read_hdf5(hdf5_path)
 
         counter = 0
         time_ = time.time()
-        
-        self._load(checkpoint_dir)
         
         for epoch in range(epochs):
             # Run by batch images
@@ -137,9 +151,9 @@ class ESPCN:
                 if counter % 10 == 0:
                     print("Epoch: [%2d], step: [%2d], time: [%4.4f], loss: [%.8f]" % ((epoch+1), counter, time.time()-time_, err))
                 if counter % 500 == 0:
-                    self._save(checkpoint_dir, counter)
+                    self._save(counter)
 
-    def test(self, checkpoint_dir, test_image):
+    def test(self, test_image):
         if test_image and self.channels == 1:
             self.test_image = test_image.split()[0]
         else:
@@ -148,7 +162,7 @@ class ESPCN:
         self._build_model()
 
         if not self.is_loaded:
-            if not self._load(checkpoint_dir):
+            if not self._load():
                 return False
 
         img = np.asarray(self.test_image)

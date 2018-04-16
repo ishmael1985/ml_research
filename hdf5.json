@@ -1,0 +1,7 @@
+{
+    "input_size": 17,
+    "stride": 14,
+    "channels": 1,
+    "batch_size": 1024,
+    "upscale_factor": 3
+}
