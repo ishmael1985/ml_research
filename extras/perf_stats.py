@@ -6,26 +6,29 @@ import argparse
 
 parser = argparse.ArgumentParser()
 parser.add_argument('csv_file', nargs=2)
+parser.add_argument('--scale',
+                    type=int,
+                    required=False,
+                    default=3,
+                    help="downsampling factor")
 
 def main():
     opt = parser.parse_args()
-    
-    augmented_set = {}
+
+    nonaugmented_set = {}
     with open(opt.csv_file[0], "r") as csvfile:
         dataset_csv = csv.reader(csvfile)
         for row in dataset_csv:
-            if row:
-                augmented_set[row[0]] = float(row[1])
-            
-    nonaugmented_set = {}
+            if row and int(row[1]) == opt.scale:
+                nonaugmented_set[row[0]] = float(row[2])
+                
+    augmented_set = {}
     with open(opt.csv_file[1], "r") as csvfile:
         dataset_csv = csv.reader(csvfile)
         for row in dataset_csv:
-            if row:
-                nonaugmented_set[row[0]] = float(row[1])
+            if row and int(row[1]) == opt.scale:
+                augmented_set[row[0]] = float(row[2])
                 
-    
-    
     diffs = []
     for image_file in augmented_set.keys():
         diffs.append(augmented_set[image_file] - nonaugmented_set[image_file])

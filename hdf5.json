@@ -1,0 +1,8 @@
+{
+    "input_size": [14,11,10],
+	"label_size": [20,21,24],
+    "stride": 4,
+    "channels": 1,
+    "batch_size": 1024,
+    "upscale_factor": 3
+}
