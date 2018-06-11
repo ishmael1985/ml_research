@@ -1,11 +1,12 @@
 import torch
 import numpy as np
-import argparse
+import argparse, sys
 import csv
 
 from torchvision.transforms import CenterCrop, Compose, Resize, ToTensor
 from torch.autograd import Variable
 from dataset import DatasetFromFolder
+from utils import get_center_crop, get_interpolated_image
 from PIL import Image
 from skimage import img_as_ubyte, img_as_float
 from skimage.measure import compare_psnr, compare_ssim
@@ -44,20 +45,8 @@ parser.add_argument('--save_result',
                     action='store_true',
                     help="save PSNR results")
 
-
-def get_center_crop(image, width, height):
-    composed_transform = Compose([CenterCrop(size=(height, width))])
-    return composed_transform(image)
-
-def get_interpolated_image(image, scale):
-    width = image.size[0] * scale
-    height = image.size[1] * scale
-    composed_transform = Compose([Resize(size=(height, width),
-                                         interpolation=Image.BICUBIC)])
-    return composed_transform(image)
-
-def main():
-    opt = parser.parse_args()
+def main(args):
+    opt = parser.parse_args(args)
 
     model = torch.load(opt.model, map_location=lambda storage, loc: storage)["model"]
     
@@ -140,4 +129,4 @@ def main():
         sampled_dataset.save_dataset("test.csv")
 
 if __name__ == "__main__":
-    main()
+    main(sys.argv[1:])

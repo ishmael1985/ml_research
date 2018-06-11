@@ -3,6 +3,7 @@ import numpy as np
 import h5py
 
 from PIL import Image
+from torchvision.transforms import CenterCrop, Compose, Resize
 from skimage.color import rgb2ycbcr
 
 def is_image_file(filename):
@@ -21,5 +22,16 @@ def read_hdf5(path):
         input_ = np.array(hf.get('data'))
         label_ = np.array(hf.get('label'))
         return input_, label_
+
+def get_center_crop(image, width, height):
+    composed_transform = Compose([CenterCrop(size=(height, width))])
+    return composed_transform(image)
+
+def get_interpolated_image(image, scale):
+    width = image.size[0] * scale
+    height = image.size[1] * scale
+    composed_transform = Compose([Resize(size=(height, width),
+                                         interpolation=Image.BICUBIC)])
+    return composed_transform(image)
 
 

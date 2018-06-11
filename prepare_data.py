@@ -1,4 +1,4 @@
-import argparse
+import argparse, sys
 
 from dataset import DatasetFromFolder
 
@@ -41,9 +41,9 @@ parser.add_argument('--save_dataset',
                     action='store_true',
                     help="save dataset csv")
 
-opt = parser.parse_args()
+def main(args):
+    opt = parser.parse_args(args)
 
-if __name__ == "__main__":
     with DatasetFromFolder(image_dir=opt.image_folder,
                            sample_size=opt.sample_size,
                            rotation=opt.rotate,
@@ -59,3 +59,6 @@ if __name__ == "__main__":
 
         if opt.save_dataset:
             sampled_dataset.save_dataset("dataset.csv")
+
+if __name__ == "__main__":
+    main(sys.argv[1:])
