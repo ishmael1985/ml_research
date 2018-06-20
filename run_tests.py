@@ -78,7 +78,7 @@ def analyze_results(id):
             ws['G'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('psnr_diff')))
             ws['H'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('deviation')))
 
-def run_test_cycle(id, transforms, repetitions, epochs):
+def run_test_cycle(id, transforms, repetitions, epoch_limit):
     import prepare_data
     import sr_train
     import sr_test
@@ -89,7 +89,8 @@ def run_test_cycle(id, transforms, repetitions, epochs):
         'Fh': '--flip_horizontal',
         'Fv': '--flip_vertical',
     }
-    transform_regex = re.compile(r"(?P<t>\w+)(\((?P<v>(\d+(\.\d+)?))\))*")
+    transform_regex = re.compile(r"(?P<t>\w+)(\((?P<v>(\d+(\.\d+)?))?\))*")
+    models_regex = re.compile('model_epoch_(?P<epoch>\d+).pth')
 
     os.makedirs('datasets/{}'.format(id), exist_ok=True)
     os.makedirs('tests/{}'.format(id), exist_ok=True)
@@ -104,7 +105,9 @@ def run_test_cycle(id, transforms, repetitions, epochs):
         args = ['--image_folder', opt.training_images,
                 '--dataset_csv', 'dataset.csv', '--save_images']
         for m in re.finditer(transform_regex, transforms):
-            aug_args = args + [transform_args[m.group('t')], m.group('v')]
+            aug_args = args + [transform_args[m.group('t')]]
+            if m.group('v'):
+                aug_args.append(m.group('v'))
             prepare_data.main(aug_args)
 
         # Generate nonaugmented dataset consisting of original images
@@ -118,13 +121,17 @@ def run_test_cycle(id, transforms, repetitions, epochs):
         ws['E'][test_ids[id]].value = opt.test_size
         
         # Start training for nonaugmented dataset
-        args = ['--threads', '0', '--cuda', '--nEpochs', epochs] 
+        args = ['--threads', '0', '--cuda', '--nEpochs', epoch_limit,
+                '--test_images', opt.test_images,
+                '--sample_size', str(int(opt.test_size / 5)), '--scale', '2']
         sr_train.main(args)
         
         # Test model and save results
+        epochs = [int(models_regex.match(f).group('epoch')) \
+                  for f in os.listdir('checkpoint') if models_regex.match(f)]
         args = ['--image_folder', opt.test_images,
                 '--sample_size', str(opt.test_size),
-                '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs),
+                '--model', 'checkpoint/model_epoch_{}.pth'.format(max(epochs)),
                 '--scale', '2', '--cuda', '--save_test', '--save_result']
         sr_test.main(args)
         
@@ -143,13 +150,17 @@ def run_test_cycle(id, transforms, repetitions, epochs):
         prepare_data.main(args)
 
         # Start training for augmented dataset
-        args = ['--threads', '0', '--cuda', '--nEpochs', epochs]
+        args = ['--threads', '0', '--cuda', '--nEpochs', epoch_limit,
+                '--test_images', opt.test_images,
+                '--sample_size', str(int(opt.test_size / 5)), '--scale', '2']
         sr_train.main(args)
 
         # Test model and save results
+        epochs = [int(models_regex.match(f).group('epoch')) \
+                  for f in os.listdir('checkpoint') if models_regex.match(f)]
         args = ['--image_folder', opt.test_images,
                 '--sample_size', str(opt.test_size),
-                '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs),
+                '--model', 'checkpoint/model_epoch_{}.pth'.format(max(epochs)),
                 '--scale', '2', '--cuda', '--load_test', 'test.csv',
                 '--save_result']
         sr_test.main(args)

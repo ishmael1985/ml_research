@@ -88,7 +88,7 @@ class DatasetFromFolder:
         self.transformed = None
         self.image_count = 0
         
-        if dataset_csv:
+        if dataset_csv and os.path.isfile(dataset_csv):
             with open(dataset_csv, "r") as csvfile:
                 dataset_csv = csv.reader(csvfile)
                 for row in dataset_csv:

@@ -6,10 +6,16 @@ import torch.backends.cudnn as cudnn
 import torch.nn as nn
 import torch.optim as optim
 
+from collections import deque
+from torchvision.transforms import ToTensor
 from torch.autograd import Variable
 from torch.utils.data import DataLoader
 from vdsr import Net
 from dataseth5 import DatasetFromHdf5
+from dataset import DatasetFromFolder
+from utils import get_center_crop, get_interpolated_image
+from skimage import img_as_ubyte, img_as_float
+from skimage.measure import compare_psnr
 
 # Training settings
 parser = argparse.ArgumentParser(description="PyTorch VDSR")
@@ -69,16 +75,25 @@ parser.add_argument('--test_images',
                     type=str,
                     required=False,
                     help="path to image folder containing test images")
-parser.add_argument('--load_test',
-                    type=str,
+parser.add_argument('--sample_size',
+                    type=int,
                     required=False,
-                    help="path to csv file containing specified set of images to load")
+                    default=10,
+                    help="number of randomly selected images used for testing")
 parser.add_argument('--scale',
                     type=int,
                     required=False,
                     nargs='+',
                     default=3,
                     help="downsampling factor")
+
+moving_windows = {}
+means = {}
+test_results = {}
+window_size = 5
+c_limit = 5
+delta_limit = 0.001
+c = 0
 
 def prepare_environment():
     global model, criterion, weights
@@ -125,6 +140,77 @@ def prepare_environment():
             model.load_state_dict(weights['model'].state_dict())
         else:
             print("=> no model found at '{}'".format(opt.pretrained))
+            
+def is_sufficiently_trained():
+    global moving_windows, means, test_results, c
+    global opt, model
+    
+    for scale in opt.scale:
+        if not scale in moving_windows:
+            moving_windows[scale] = deque(maxlen=window_size)
+        if not scale in means:
+            means[scale] = 0
+            
+        average_psnr = 0
+        sampled_dataset = DatasetFromFolder(image_dir=opt.test_images,
+                                            dataset_csv='validation.csv',
+                                            sample_size=opt.sample_size,
+                                            scale=scale)
+
+        for ground_truth in sampled_dataset:
+            downsampled_image = sampled_dataset.transform(ground_truth)
+            y = get_interpolated_image(downsampled_image.split()[0], scale)
+            
+            input_image = Variable(ToTensor()(y),
+                                   volatile=True).view(1, -1,
+                                                       y.size[1], y.size[0])
+
+            if opt.cuda:
+                model = model.cuda()
+                input_image = input_image.cuda()
+            else:
+                model = model.cpu()
+
+            out_img = model(input_image)
+            
+            out_img = out_img.cpu()
+            out_img_y = out_img.data[0].numpy().clip(0, 1)
+            out_img_y = out_img_y[0, :, :]
+            
+            height, width = out_img_y.shape
+            ground_truth = get_center_crop(ground_truth, width, height)
+            
+            gt_img = img_as_float(np.asarray(ground_truth.split()[0]))
+            predicted = img_as_float(out_img_y)
+            interpolated = img_as_float(np.asarray(y))
+            
+            psnr = compare_psnr(gt_img, predicted)
+            average_psnr += psnr
+
+        sample_size = len(sampled_dataset.image_filenames)
+        moving_windows[scale].appendleft(average_psnr / sample_size)
+        if len(moving_windows[scale]) == window_size:
+            new_mean = np.mean(list(moving_windows[scale]))
+            if means[scale]:
+                delta = new_mean - means[scale]
+                if delta < delta_limit:
+                    c = c + 1
+            means[scale] = new_mean
+            if c > c_limit:
+                test_results[scale] = True
+                continue
+
+        test_results[scale] = False
+
+    # This should only ever be executed once
+    if not os.path.isfile("validation.csv"):
+        sampled_dataset.save_dataset("validation.csv")
+
+    if False in test_results.values():
+        return False
+    else:
+        os.remove("validation.csv")
+        return True
 
 def adjust_learning_rate(optimizer, epoch):
     """Sets the learning rate to the initial LR decayed by 10 every 10 epochs"""
@@ -168,6 +254,7 @@ def save_checkpoint(epoch):
     print("Checkpoint saved to {}".format(model_out_path))
 
 def main(args):
+    global moving_windows, means, test_results, c
     global opt
     opt = parser.parse_args(args)
 
@@ -186,6 +273,17 @@ def main(args):
     for epoch in range(opt.start_epoch, opt.nEpochs + 1):
         train(training_data_loader, optimizer, epoch)
         save_checkpoint(epoch)
+
+        if opt.test_images and opt.scale:
+            if is_sufficiently_trained():
+                print("Stopped training at {} epochs".format(epoch))
+                break
+
+    # Reset global variables related to early termination
+    moving_windows = {}
+    means = {}
+    test_results = {}
+    c = 0
 
 if __name__ == "__main__":
     main(sys.argv[1:])
