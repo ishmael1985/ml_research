@@ -89,7 +89,7 @@ def run_test_cycle(id, transforms, repetitions, epoch_limit):
         'Fh': '--flip_horizontal',
         'Fv': '--flip_vertical',
     }
-    transform_regex = re.compile(r"(?P<t>\w+)(\((?P<v>(\d+(\.\d+)?))?\))*")
+    transform_regex = re.compile(r"(?P<t>\w+)(\((?P<v>(-?\d+(\.\d+)?))?\))*")
     models_regex = re.compile('model_epoch_(?P<epoch>\d+).pth')
 
     os.makedirs('datasets/{}'.format(id), exist_ok=True)
