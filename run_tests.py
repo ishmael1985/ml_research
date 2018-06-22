@@ -68,7 +68,7 @@ def analyze_results(id):
             ws['G'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('psnr_diff')))
             ws['H'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('deviation')))
 
-def run_test_cycle(id, transforms, repetitions, train_size, test_size):
+def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
     import prepare_data
     import sr_train
     import sr_test
@@ -97,14 +97,20 @@ def run_test_cycle(id, transforms, repetitions, train_size, test_size):
         
         args = ['--image_folder', opt.training_images,
                 '--dataset_csv', 'dataset.csv', '--save_images']
-        for m in re.finditer(transform_regex, transforms):
-            aug_args = args + [transform_args[m.group('t')]]
-            if m.group('v'):
-                if m.group('t') == 'Sc':
-                    val = str(1 / float(m.group('v')))
-                else:
-                    val = m.group('v')
-                aug_args.append(val)
+        transforms_list = [i.strip() for i in transforms_str.split(',')]
+        for transform_combination in transforms_list:
+            transforms = [i.strip() for i in transform_combination.split('&')]
+            aug_args = args
+            for transform in transforms:
+                m = transform_regex.match(transform)
+                if m:
+                    aug_args = aug_args + [transform_args[m.group('t')]]
+                    if m.group('v'):
+                        if m.group('t') == 'Sc':
+                            val = str(1 / float(m.group('v')))
+                        else:
+                            val = m.group('v')
+                        aug_args.append(val)
             prepare_data.main(aug_args)
 
         # Generate nonaugmented dataset consisting of original images
@@ -114,7 +120,8 @@ def run_test_cycle(id, transforms, repetitions, train_size, test_size):
         prepare_data.main(args)
         
         # Start training for nonaugmented dataset
-        args = ['--threads', '0', '--cuda', '--nEpochs', epochs_nonaugmented]
+        args = ['--threads', '0', '--cuda',
+                '--nEpochs', str(epochs_nonaugmented)]
         # Use auto-termination for first repetition only
         if repetitions == 1:
             args = args +  ['--test_images', opt.test_images,
@@ -151,7 +158,8 @@ def run_test_cycle(id, transforms, repetitions, train_size, test_size):
         prepare_data.main(args)
 
         # Start training for augmented dataset
-        args = ['--threads', '0', '--cuda', '--nEpochs', epochs_augmented]
+        args = ['--threads', '0', '--cuda',
+                '--nEpochs', str(epochs_augmented)]
         # Use auto-termination for first repetition only
         if repetitions == 1:
             args = args +  ['--test_images', opt.test_images,
