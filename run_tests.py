@@ -100,7 +100,11 @@ def run_test_cycle(id, transforms, repetitions, train_size, test_size):
         for m in re.finditer(transform_regex, transforms):
             aug_args = args + [transform_args[m.group('t')]]
             if m.group('v'):
-                aug_args.append(m.group('v'))
+                if m.group('t') == 'Sc':
+                    val = str(1 / float(m.group('v')))
+                else:
+                    val = m.group('v')
+                aug_args.append(val)
             prepare_data.main(aug_args)
 
         # Generate nonaugmented dataset consisting of original images
