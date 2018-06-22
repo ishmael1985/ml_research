@@ -23,16 +23,6 @@ parser.add_argument('--test_images',
                     type=str,
                     required=False,
                     help="path to test dataset")
-parser.add_argument('--train_size',
-                    type=int,
-                    required=False,
-                    default=-1,
-                    help="number of randomly selected samples to generate")
-parser.add_argument('--test_size',
-                    type=int,
-                    required=False,
-                    default=-1,
-                    help="number of randomly selected samples to test")
 parser.add_argument('--test_ids',
                     type=str,
                     required=False,
@@ -78,7 +68,7 @@ def analyze_results(id):
             ws['G'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('psnr_diff')))
             ws['H'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('deviation')))
 
-def run_test_cycle(id, transforms, repetitions):
+def run_test_cycle(id, transforms, repetitions, train_size, test_size):
     import prepare_data
     import sr_train
     import sr_test
@@ -101,7 +91,7 @@ def run_test_cycle(id, transforms, repetitions):
     
     for i in range(1, repetitions+1):
         args = ['--image_folder', opt.training_images,
-                '--sample_size', str(opt.train_size),
+                '--sample_size', str(train_size),
                 '--save_images', '--save_dataset']
         prepare_data.main(args)
         
@@ -118,17 +108,13 @@ def run_test_cycle(id, transforms, repetitions):
         args = ['--image_folder', 'generated', '--scale', '2',
                 '--dataset_csv', 'dataset.csv', '--hdf5_path', 'train.h5']
         prepare_data.main(args)
-
-        # Record training and test dataset sizes
-        ws['D'][test_ids[id]].value = len(os.listdir('generated'))
-        ws['E'][test_ids[id]].value = opt.test_size
         
         # Start training for nonaugmented dataset
         args = ['--threads', '0', '--cuda', '--nEpochs', epochs_nonaugmented]
         # Use auto-termination for first repetition only
         if repetitions == 1:
             args = args +  ['--test_images', opt.test_images,
-                            '--sample_size', str(int(opt.test_size / 5)),
+                            '--sample_size', str(int(test_size / 5)),
                             '--scale', '2']
         sr_train.main(args)
         
@@ -141,7 +127,7 @@ def run_test_cycle(id, transforms, repetitions):
             # fully train the network is determined from the first repetition
             epochs_nonaugmented = max(epochs)
         args = ['--image_folder', opt.test_images,
-                '--sample_size', str(opt.test_size),
+                '--sample_size', str(test_size),
                 '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_nonaugmented),
                 '--scale', '2', '--cuda', '--save_test', '--save_result']
         sr_test.main(args)
@@ -165,7 +151,7 @@ def run_test_cycle(id, transforms, repetitions):
         # Use auto-termination for first repetition only
         if repetitions == 1:
             args = args +  ['--test_images', opt.test_images,
-                            '--sample_size', str(int(opt.test_size / 5)),
+                            '--sample_size', str(int(test_size / 5)),
                             '--scale', '2']
         sr_train.main(args)
 
@@ -178,7 +164,7 @@ def run_test_cycle(id, transforms, repetitions):
             # fully train the network is determined from the first repetition
             ws['F'][test_ids[id]].value = epochs_augmented = max(epochs)
         args = ['--image_folder', opt.test_images,
-                '--sample_size', str(opt.test_size),
+                '--sample_size', str(test_size),
                 '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_augmented),
                 '--scale', '2', '--cuda', '--load_test', 'test.csv',
                 '--save_result']
@@ -200,6 +186,8 @@ def run_test_cycle(id, transforms, repetitions):
 def main():
     transforms_list = []
     repetitions_list = []
+    train_dataset_sizes = []
+    test_dataset_sizes = []
 
     for row, col in enumerate(ws['A'][1:], 1):
         test_ids[col.value] = row
@@ -207,9 +195,14 @@ def main():
         transforms_list.append(col.value)
     for col in ws['C'][1:]:
         repetitions_list.append(col.value)
+    for col in ws['D'][1:]:
+        train_dataset_sizes.append(col.value)
+    for col in ws['E'][1:]:
+        test_dataset_sizes.append(col.value)
 
     tests = OrderedDict(zip(test_ids.keys(),
-                            zip(transforms_list, repetitions_list)))
+                            zip(transforms_list, repetitions_list,
+                                train_dataset_sizes, test_dataset_sizes)))
 
     for id, params in tests.items():
         if opt.test_ids and str(id) not in opt.test_ids:
@@ -218,7 +211,7 @@ def main():
         os.makedirs('results/{}'.format(id), exist_ok=True)
 
         if not opt.analyze_only:
-            run_test_cycle(id, params[0], params[1]))
+            run_test_cycle(id, params[0], params[1], params[2], params[3])
         
         # Collect results for the test
         analyze_results(id)
