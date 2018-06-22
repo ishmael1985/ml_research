@@ -78,7 +78,7 @@ def analyze_results(id):
             ws['G'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('psnr_diff')))
             ws['H'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('deviation')))
 
-def run_test_cycle(id, transforms, repetitions, epoch_limit):
+def run_test_cycle(id, transforms, repetitions):
     import prepare_data
     import sr_train
     import sr_test
@@ -91,6 +91,9 @@ def run_test_cycle(id, transforms, repetitions, epoch_limit):
     }
     transform_regex = re.compile(r"(?P<t>\w+)(\((?P<v>(-?\d+(\.\d+)?))?\))*")
     models_regex = re.compile('model_epoch_(?P<epoch>\d+).pth')
+
+    epochs_nonaugmented = 80
+    epochs_augmented = 80
 
     os.makedirs('datasets/{}'.format(id), exist_ok=True)
     os.makedirs('tests/{}'.format(id), exist_ok=True)
@@ -121,17 +124,25 @@ def run_test_cycle(id, transforms, repetitions, epoch_limit):
         ws['E'][test_ids[id]].value = opt.test_size
         
         # Start training for nonaugmented dataset
-        args = ['--threads', '0', '--cuda', '--nEpochs', epoch_limit,
-                '--test_images', opt.test_images,
-                '--sample_size', str(int(opt.test_size / 5)), '--scale', '2']
+        args = ['--threads', '0', '--cuda', '--nEpochs', epochs_nonaugmented]
+        # Use auto-termination for first repetition only
+        if repetitions == 1:
+            args = args +  ['--test_images', opt.test_images,
+                            '--sample_size', str(int(opt.test_size / 5)),
+                            '--scale', '2']
         sr_train.main(args)
         
         # Test model and save results
-        epochs = [int(models_regex.match(f).group('epoch')) \
-                  for f in os.listdir('checkpoint') if models_regex.match(f)]
+        if repetitions == 1:
+            epochs = [int(models_regex.match(f).group('epoch')) \
+                      for f in os.listdir('checkpoint') \
+                      if models_regex.match(f)]
+            # Update the epoch limit once number of epochs required to
+            # fully train the network is determined from the first repetition
+            epochs_nonaugmented = max(epochs)
         args = ['--image_folder', opt.test_images,
                 '--sample_size', str(opt.test_size),
-                '--model', 'checkpoint/model_epoch_{}.pth'.format(max(epochs)),
+                '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_nonaugmented),
                 '--scale', '2', '--cuda', '--save_test', '--save_result']
         sr_test.main(args)
         
@@ -150,17 +161,25 @@ def run_test_cycle(id, transforms, repetitions, epoch_limit):
         prepare_data.main(args)
 
         # Start training for augmented dataset
-        args = ['--threads', '0', '--cuda', '--nEpochs', epoch_limit,
-                '--test_images', opt.test_images,
-                '--sample_size', str(int(opt.test_size / 5)), '--scale', '2']
+        args = ['--threads', '0', '--cuda', '--nEpochs', epochs_augmented]
+        # Use auto-termination for first repetition only
+        if repetitions == 1:
+            args = args +  ['--test_images', opt.test_images,
+                            '--sample_size', str(int(opt.test_size / 5)),
+                            '--scale', '2']
         sr_train.main(args)
 
         # Test model and save results
-        epochs = [int(models_regex.match(f).group('epoch')) \
-                  for f in os.listdir('checkpoint') if models_regex.match(f)]
+        if repetitions == 1:
+            epochs = [int(models_regex.match(f).group('epoch')) \
+                      for f in os.listdir('checkpoint') \
+                      if models_regex.match(f)]
+            # Update the epoch limit once number of epochs required to
+            # fully train the network is determined from the first repetition
+            ws['F'][test_ids[id]].value = epochs_augmented = max(epochs)
         args = ['--image_folder', opt.test_images,
                 '--sample_size', str(opt.test_size),
-                '--model', 'checkpoint/model_epoch_{}.pth'.format(max(epochs)),
+                '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_augmented),
                 '--scale', '2', '--cuda', '--load_test', 'test.csv',
                 '--save_result']
         sr_test.main(args)
@@ -181,7 +200,6 @@ def run_test_cycle(id, transforms, repetitions, epoch_limit):
 def main():
     transforms_list = []
     repetitions_list = []
-    epochs_list = []
 
     for row, col in enumerate(ws['A'][1:], 1):
         test_ids[col.value] = row
@@ -189,11 +207,9 @@ def main():
         transforms_list.append(col.value)
     for col in ws['C'][1:]:
         repetitions_list.append(col.value)
-    for col in ws['F'][1:]:
-        epochs_list.append(col.value)
 
     tests = OrderedDict(zip(test_ids.keys(),
-                            zip(transforms_list, repetitions_list, epochs_list)))
+                            zip(transforms_list, repetitions_list)))
 
     for id, params in tests.items():
         if opt.test_ids and str(id) not in opt.test_ids:
@@ -202,7 +218,7 @@ def main():
         os.makedirs('results/{}'.format(id), exist_ok=True)
 
         if not opt.analyze_only:
-            run_test_cycle(id, params[0], params[1], str(params[2]))
+            run_test_cycle(id, params[0], params[1]))
         
         # Collect results for the test
         analyze_results(id)
