@@ -308,6 +308,7 @@ class DatasetFromFolder:
                                                    resample=Image.BICUBIC))
         
         if self.tilt_angle:
+            self.tilt_angle = max(0, min(self.tilt_angle, 85))
             image = self.get_low_angle_perspective(image, -self.tilt_angle)
 
         if self.scale:
