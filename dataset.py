@@ -9,6 +9,7 @@ import pathlib
 
 from os import walk, makedirs
 from os.path import join, exists, splitext, dirname, basename, realpath
+from math import ceil, floor
 from shutil import copy2
 from PIL import Image
 from torchvision.transforms import (
@@ -78,8 +79,8 @@ def get_images(image_dir):
 class DatasetFromFolder:
     def __init__(self, image_dir, sample_size=-1,
                  rotation=None, scale=None,
-                 flip_horizontal=False, flip_vertical=False, 
-                 hdf5_path='', dataset_csv=''):
+                 flip_horizontal=False, flip_vertical=False,
+                 tilt_angle=0, hdf5_path='', dataset_csv=''):
         self.image_dir = image_dir
         self.script_dir = dirname(realpath(__file__))
         self.dest_dir = join(self.script_dir, 'generated')
@@ -106,6 +107,7 @@ class DatasetFromFolder:
         self.rotation = rotation
         self.flip_horizontal = flip_horizontal
         self.flip_vertical = flip_vertical
+        self.tilt_angle = tilt_angle
         self.hdf5_path = hdf5_path
         self.sub_inputs = []
         self.sub_labels = []
@@ -244,21 +246,70 @@ class DatasetFromFolder:
                 hf["label"].resize((hf["label"].shape[0] + labels.shape[0]),
                                    axis = 0)
                 hf["label"][-labels.shape[0]:] = labels
+
+    
+    def get_low_angle_perspective(self, image, angle):
+        H = 1
+        theta = np.deg2rad(angle)
+        w, h = image.size
+        x1 = 0
+        x2 = w
+        y1 = 0
+        y2 = h
+
+        original_plane = [(x1, y1), (x2, y1), (x2, y2), (x1, y2)]
+        new_plane = []
+
+        for u, v in original_plane:
+            s1 = 1/np.cos(theta) + H*np.sin(theta)*(2*(v-h/2)/h)
+            s2 = 1/np.cos(theta) + H*np.sin(theta)*(2*(v-(h-1)/2)/(h-1))
+            up = (w-1)/2 + (u-(w-1)/2)/s1
+            vp = (h-1)/2 + np.cos(theta)*(v-(h-1)/2)/s2
+            new_plane.append((up, vp))
+
+        # To calculate the coefficients required by PIL for the perspective skew,
+        # see the following Stack Overflow discussion: https://goo.gl/sSgJdj
+        matrix = []
+
+        for p1, p2 in zip(new_plane, original_plane):
+            matrix.append([p1[0], p1[1], 1, 0, 0, 0, -p2[0] * p1[0], -p2[0] * p1[1]])
+            matrix.append([0, 0, 0, p1[0], p1[1], 1, -p2[1] * p1[0], -p2[1] * p1[1]])
+
+        A = np.matrix(matrix, dtype=np.float)
+        B = np.array(original_plane).reshape(8)
+
+        perspective_coefficients_matrix = np.dot(np.linalg.pinv(A), B)
+        perspective_coefficients_matrix = np.array(perspective_coefficients_matrix).reshape(8)
+
+        skewed_image = image.transform(image.size,
+                                       Image.PERSPECTIVE,
+                                       perspective_coefficients_matrix,
+                                       resample=Image.BICUBIC)
         
+        bounding_box = (ceil(new_plane[0][0]),
+                        ceil(new_plane[0][1]),
+                        floor(new_plane[1][0]),
+                        h if h < new_plane[3][1] else floor(new_plane[3][1]))
+
+        return skewed_image.crop(bounding_box)
 
     def transform(self, image):
         image_transforms = []
         input_width, input_height = image.size
         
+        if self.flip_horizontal:
+            image = image.transpose(Image.FLIP_LEFT_RIGHT)
+        if self.flip_vertical:
+            image = image.transpose(Image.FLIP_TOP_BOTTOM)
         if self.rotation:
             image_transforms.append(RandomRotation(degrees=(self.rotation,
                                                             self.rotation),
                                                    expand=True,
                                                    resample=Image.BICUBIC))
-        if self.flip_horizontal:
-            image = image.transpose(Image.FLIP_LEFT_RIGHT)
-        if self.flip_vertical:
-            image = image.transpose(Image.FLIP_TOP_BOTTOM)
+        
+        if self.tilt_angle:
+            image = self.get_low_angle_perspective(image, -self.tilt_angle)
+
         if self.scale:
             cropped_width, cropped_height = calculate_cropped_size(input_width,
                                                                    input_height,
@@ -272,6 +323,7 @@ class DatasetFromFolder:
         if image_transforms:
             composed_transform = Compose(image_transforms)
             self.transformed = composed_transform(image)
+            
             if self.rotation:
                 # Get new input size for the maximum area of rotated image if downsampled
                 if self.scale:
@@ -300,7 +352,9 @@ class DatasetFromFolder:
         if self.flip_horizontal:
             label = label + "_flip_lr"
         if self.flip_vertical:
-            label = label + "_flip_tb"
+            label = label + "_flip_tb"        
+        if self.tilt_angle:
+            label = label + "_tilt_" + str(self.tilt_angle)
 
         if label:
             output_filename = splitext(output_filename)[0] + label + '.png'
