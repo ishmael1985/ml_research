@@ -80,7 +80,10 @@ class DatasetFromFolder:
     def __init__(self, image_dir, sample_size=-1,
                  rotation=None, scale=None,
                  flip_horizontal=False, flip_vertical=False,
-                 tilt_angle=0, hdf5_path='', dataset_csv=''):
+                 tilt_angle=0,
+                 additive_brightness=0,
+                 brightness_factor=0, brightness_offset=0,
+                 hdf5_path='', dataset_csv=''):
         self.image_dir = image_dir
         self.script_dir = dirname(realpath(__file__))
         self.dest_dir = join(self.script_dir, 'generated')
@@ -108,6 +111,9 @@ class DatasetFromFolder:
         self.flip_horizontal = flip_horizontal
         self.flip_vertical = flip_vertical
         self.tilt_angle = tilt_angle
+        self.additive_brightness = additive_brightness
+        self.brightness_factor = brightness_factor
+        self.brightness_offset = brightness_offset
         self.hdf5_path = hdf5_path
         self.sub_inputs = []
         self.sub_labels = []
@@ -320,7 +326,23 @@ class DatasetFromFolder:
             image_transforms.append(Resize(size=(int(cropped_height / self.scale),
                                                  int(cropped_width / self.scale)),
                                            interpolation=Image.BICUBIC))
-    
+
+        if self.additive_brightness:
+            y, cb, cr = image.split()
+            out_y = np.asarray(y) + self.additive_brightness
+            out_y = out_y.clip(0, 255)
+            y = Image.fromarray(np.uint8(out_y), mode='L')
+            image = Image.merge('YCbCr', [y, cb, cr])
+
+        if self.brightness_factor:
+            y, cb, cr = image.split()
+            y_ = np.asarray(y)
+            out_y = y_ - self.brightness_offset
+            out_y = y_ + ((self.brightness_factor / 255) * out_y)
+            out_y = out_y.clip(0, 255)
+            y = Image.fromarray(np.uint8(out_y), mode='L')
+            image = Image.merge('YCbCr', [y, cb, cr])
+            
         if image_transforms:
             composed_transform = Compose(image_transforms)
             self.transformed = composed_transform(image)
@@ -356,6 +378,11 @@ class DatasetFromFolder:
             label = label + "_flip_tb"        
         if self.tilt_angle:
             label = label + "_tilt_" + str(self.tilt_angle)
+        if self.additive_brightness:
+            label = label + "_brightness_add_" + str(self.additive_brightness)
+        if self.brightness_factor:
+            label = (label + "_brightness_mul_" + str(self.brightness_factor) +
+                     "_" + str(self.brightness_offset))
 
         if label:
             output_filename = splitext(output_filename)[0] + label + '.png'

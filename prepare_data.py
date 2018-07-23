@@ -25,6 +25,15 @@ parser.add_argument('--tilt_angle',
                     type=float,
                     required=False,
                     help="tilt angle")
+parser.add_argument('--additive_brightness',
+                    type=int,
+                    required=False,
+                    help="change brightness with additive pixel value")
+parser.add_argument('--brightness',
+                    type=float,
+                    nargs='+',
+                    required=False,
+                    help="change brightness with factor and offset")
 parser.add_argument('--sample_size',
                     type=int,
                     required=False,
@@ -48,6 +57,11 @@ parser.add_argument('--save_dataset',
 def main(args):
     opt = parser.parse_args(args)
 
+    if opt.brightness:
+        brightness = opt.brightness
+    else:
+        brightness = (0, 0)
+
     with DatasetFromFolder(image_dir=opt.image_folder,
                            sample_size=opt.sample_size,
                            rotation=opt.rotate,
@@ -55,6 +69,9 @@ def main(args):
                            flip_horizontal=opt.flip_horizontal,
                            flip_vertical=opt.flip_vertical,
                            tilt_angle=opt.tilt_angle,
+                           additive_brightness=opt.additive_brightness,
+                           brightness_factor=brightness[0],
+                           brightness_offset=brightness[1],
                            dataset_csv=opt.dataset_csv,
                            hdf5_path=opt.hdf5_path) as sampled_dataset:
         for input_image in sampled_dataset:
