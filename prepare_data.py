@@ -15,6 +15,11 @@ parser.add_argument('--scale',
                     type=float,
                     required=False,
                     help="downsampling factor")
+parser.add_argument('--translate',
+                    type=int,
+                    nargs='+',
+                    required=False,
+                    help="translate image specifying x and y offsets")
 parser.add_argument('--flip_horizontal',
                     action='store_true',
                     help="flip image left to right")
@@ -62,10 +67,17 @@ def main(args):
     else:
         brightness = (0, 0)
 
+    if opt.translate:
+        translate = opt.translate
+    else:
+        translate = (0, 0)
+
     with DatasetFromFolder(image_dir=opt.image_folder,
                            sample_size=opt.sample_size,
                            rotation=opt.rotate,
                            scale=opt.scale,
+                           x_offset=translate[0],
+                           y_offset=translate[1],
                            flip_horizontal=opt.flip_horizontal,
                            flip_vertical=opt.flip_vertical,
                            tilt_angle=opt.tilt_angle,

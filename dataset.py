@@ -79,6 +79,7 @@ def get_images(image_dir):
 class DatasetFromFolder:
     def __init__(self, image_dir, sample_size=-1,
                  rotation=None, scale=None,
+                 x_offset=0, y_offset=0,
                  flip_horizontal=False, flip_vertical=False,
                  tilt_angle=0,
                  additive_brightness=0,
@@ -108,6 +109,8 @@ class DatasetFromFolder:
 
         self.scale = scale
         self.rotation = rotation
+        self.x_offset = x_offset
+        self.y_offset = y_offset
         self.flip_horizontal = flip_horizontal
         self.flip_vertical = flip_vertical
         self.tilt_angle = tilt_angle
@@ -312,7 +315,16 @@ class DatasetFromFolder:
                                                             self.rotation),
                                                    expand=True,
                                                    resample=Image.BICUBIC))
-        
+        if self.x_offset or self.y_offset:
+            a = 1
+            b = 0
+            c = self.x_offset   #left/right (i.e. 5/-5)
+            d = 0
+            e = 1
+            f = self.y_offset   #up/down (i.e. 5/-5)
+            translate = image.transform(image.size, Image.AFFINE,
+                                        (a, b, c, d, e, f))
+            image = translate.crop(translate.getbbox())
         if self.tilt_angle:
             self.tilt_angle = max(0, min(self.tilt_angle, 85))
             image = self.get_low_angle_perspective(image, -self.tilt_angle)
@@ -372,6 +384,9 @@ class DatasetFromFolder:
             label = label + "_rotate_" + str(self.rotation)
         if self.scale:
             label = label + "_scale_" + str(self.scale)
+        if self.x_offset or self.y_offset:
+            label = (label + "_translate_x_" + str(self.x_offset) +
+                     "_y_" + str(self.y_offset))
         if self.flip_horizontal:
             label = label + "_flip_lr"
         if self.flip_vertical:
