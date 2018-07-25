@@ -76,10 +76,14 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
     transform_args = {
         'Sc': '--scale',
         'Ro': '--rotate',
+        'Tr': '--translate',
         'Fh': '--flip_horizontal',
         'Fv': '--flip_vertical',
+        'La': '--tilt_angle',
+        'Ba': '--additive_brightness',
+        'Bm': '--brightness',
     }
-    transform_regex = re.compile(r"(?P<t>\w+)(\((?P<v>(-?\d+(\.\d+)?))?\))*")
+    transform_regex = re.compile(r"(?P<t>\w+)\((?P<v>(-?\d+(\.\d+)?(,-?\d+(\.\d+)?)*))?\)")
     models_regex = re.compile('model_epoch_(?P<epoch>\d+).pth')
 
     epochs_nonaugmented = 80
@@ -97,7 +101,7 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         
         args = ['--image_folder', opt.training_images,
                 '--dataset_csv', 'dataset.csv', '--save_images']
-        transforms_list = [i.strip() for i in transforms_str.split(',')]
+        transforms_list = [i.strip() for i in transforms_str.split(';')]
         for transform_combination in transforms_list:
             transforms = [i.strip() for i in transform_combination.split('&')]
             aug_args = args
@@ -108,9 +112,11 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
                     if m.group('v'):
                         if m.group('t') == 'Sc':
                             val = str(1 / float(m.group('v')))
+                            aug_args.append(val)
+                        elif m.group('t') == 'Bm' or m.group('t') == 'Tr':
+                            aug_args.extend(m.group('v').split(','))
                         else:
-                            val = m.group('v')
-                        aug_args.append(val)
+                            aug_args.append(m.group('v'))
             prepare_data.main(aug_args)
 
         # Generate nonaugmented dataset consisting of original images
