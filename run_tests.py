@@ -129,14 +129,14 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         args = ['--threads', '0', '--cuda',
                 '--nEpochs', str(epochs_nonaugmented)]
         # Use auto-termination for first repetition only
-        if repetitions == 1:
+        if i == 1:
             args = args +  ['--test_images', opt.test_images,
                             '--sample_size', str(int(test_size / 5)),
                             '--scale', '2']
         sr_train.main(args)
         
         # Test model and save results
-        if repetitions == 1:
+        if i == 1:
             epochs = [int(models_regex.match(f).group('epoch')) \
                       for f in os.listdir('checkpoint') \
                       if models_regex.match(f)]
@@ -167,14 +167,14 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         args = ['--threads', '0', '--cuda',
                 '--nEpochs', str(epochs_augmented)]
         # Use auto-termination for first repetition only
-        if repetitions == 1:
+        if i == 1:
             args = args +  ['--test_images', opt.test_images,
                             '--sample_size', str(int(test_size / 5)),
                             '--scale', '2']
         sr_train.main(args)
 
         # Test model and save results
-        if repetitions == 1:
+        if i == 1:
             epochs = [int(models_regex.match(f).group('epoch')) \
                       for f in os.listdir('checkpoint') \
                       if models_regex.match(f)]
