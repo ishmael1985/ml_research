@@ -83,7 +83,7 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         'Ba': '--additive_brightness',
         'Bm': '--brightness',
     }
-    transform_regex = re.compile(r"(?P<t>\w+)\((?P<v>(-?\d+(\.\d+)?(,-?\d+(\.\d+)?)*))?\)")
+    transform_regex = re.compile(r"(?P<t>\w+)\((?P<v>(-?\d+(\.\d+)?(,\s*-?\d+(\.\d+)?)*))?\)")
     models_regex = re.compile('model_epoch_(?P<epoch>\d+).pth')
 
     epochs_nonaugmented = 80
