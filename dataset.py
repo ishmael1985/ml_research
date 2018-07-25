@@ -318,12 +318,13 @@ class DatasetFromFolder:
         if self.x_offset or self.y_offset:
             a = 1
             b = 0
-            c = self.x_offset   #left/right (i.e. 5/-5)
+            c = self.x_offset
             d = 0
             e = 1
-            f = self.y_offset   #up/down (i.e. 5/-5)
+            f = self.y_offset
+            # For PIL apply inverse of translation matrix
             translate = image.transform(image.size, Image.AFFINE,
-                                        (a, b, c, d, e, f))
+                                        (a, b, -c, d, e, -f))
             image = translate.crop(translate.getbbox())
         if self.tilt_angle:
             self.tilt_angle = max(0, min(self.tilt_angle, 85))
