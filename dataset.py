@@ -77,14 +77,8 @@ def get_images(image_dir):
 
 
 class DatasetFromFolder:
-    def __init__(self, image_dir, sample_size=-1,
-                 rotation=None, scale=None,
-                 x_offset=0, y_offset=0,
-                 flip_horizontal=False, flip_vertical=False,
-                 tilt_angle=0,
-                 additive_brightness=0,
-                 brightness_factor=0, brightness_offset=0,
-                 hdf5_path='', dataset_csv=''):
+    def __init__(self, image_dir, transforms,
+                 sample_size=-1, hdf5_path='', dataset_csv=''):
         self.image_dir = image_dir
         self.script_dir = dirname(realpath(__file__))
         self.dest_dir = join(self.script_dir, 'generated')
@@ -106,17 +100,7 @@ class DatasetFromFolder:
             if sample_size > 0:
                 self.image_filenames = random.sample(self.image_filenames,
                                                      sample_size)
-
-        self.scale = scale
-        self.rotation = rotation
-        self.x_offset = x_offset
-        self.y_offset = y_offset
-        self.flip_horizontal = flip_horizontal
-        self.flip_vertical = flip_vertical
-        self.tilt_angle = tilt_angle
-        self.additive_brightness = additive_brightness
-        self.brightness_factor = brightness_factor
-        self.brightness_offset = brightness_offset
+        self.transforms = transforms
         self.hdf5_path = hdf5_path
         self.sub_inputs = []
         self.sub_labels = []
@@ -303,73 +287,67 @@ class DatasetFromFolder:
         return skewed_image.crop(bounding_box)
 
     def transform(self, image):
-        image_transforms = []
-        input_width, input_height = image.size
-        
-        if self.flip_horizontal:
-            image = image.transpose(Image.FLIP_LEFT_RIGHT)
-        if self.flip_vertical:
-            image = image.transpose(Image.FLIP_TOP_BOTTOM)
-        if self.rotation:
-            image_transforms.append(RandomRotation(degrees=(self.rotation,
-                                                            self.rotation),
+        for transform, value in self.transforms.items():
+            input_width, input_height = image.size
+            if transform == 'flip_horizontal':
+                image = image.transpose(Image.FLIP_LEFT_RIGHT)
+            elif transform == 'flip_vertical':
+                image = image.transpose(Image.FLIP_TOP_BOTTOM)
+            elif transform == 'rotate':
+                image_transforms = [RandomRotation(degrees=(value,
+                                                            value),
                                                    expand=True,
-                                                   resample=Image.BICUBIC))
-        if self.x_offset or self.y_offset:
-            a = 1
-            b = 0
-            c = self.x_offset
-            d = 0
-            e = 1
-            f = self.y_offset
-            # For PIL apply inverse of translation matrix
-            translate = image.transform(image.size, Image.AFFINE,
-                                        (a, b, -c, d, e, -f))
-            image = translate.crop(translate.getbbox())
-        if self.tilt_angle:
-            self.tilt_angle = max(0, min(self.tilt_angle, 85))
-            image = self.get_low_angle_perspective(image, -self.tilt_angle)
+                                                   resample=Image.BICUBIC)]
+                composed_transform = Compose(image_transforms)
+                image = composed_transform(image)
 
-        if self.scale:
-            cropped_width, cropped_height = calculate_cropped_size(input_width,
-                                                                   input_height,
-                                                                   self.scale)
-            image_transforms.append(CenterCrop(size=(cropped_height,
-                                                     cropped_width)))
-            image_transforms.append(Resize(size=(int(cropped_height / self.scale),
-                                                 int(cropped_width / self.scale)),
-                                           interpolation=Image.BICUBIC))
+                image = rotate_max_area(image,
+                                        input_width,
+                                        input_height,
+                                        value)
+            elif transform == 'translate':
+                a = 1
+                b = 0
+                c = value[0]
+                d = 0
+                e = 1
+                f = value[1]
+                # For PIL apply inverse of translation matrix
+                translate = image.transform(image.size, Image.AFFINE,
+                                            (a, b, -c, d, e, -f))
+                image = translate.crop(translate.getbbox())
+            elif transform == 'tilt_angle':
+                tilt_angle = max(0, min(value, 85))
+                image = self.get_low_angle_perspective(image, -tilt_angle)
+            elif transform == 'scale':
+                cropped_width, cropped_height = calculate_cropped_size(input_width,
+                                                                       input_height,
+                                                                       value)
+                image_transforms = [CenterCrop(size=(cropped_height,
+                                                     cropped_width)),
+                                    Resize(size=(int(cropped_height / value),
+                                                 int(cropped_width / value)),
+                                           interpolation=Image.BICUBIC)]
+                composed_transform = Compose(image_transforms)
+                image = composed_transform(image)
+            elif transform == 'additive_brightness':
+                y, cb, cr = image.split()
+                out_y = np.asarray(y) + value
+                out_y = out_y.clip(0, 255)
+                y = Image.fromarray(np.uint8(out_y), mode='L')
+                image = Image.merge('YCbCr', [y, cb, cr])
+            elif transform == 'brightness':
+                y, cb, cr = image.split()
+                y_ = np.asarray(y)
+                out_y = y_ - value[1]
+                out_y = y_ + ((value[0] / 255) * out_y)
+                out_y = out_y.clip(0, 255)
+                y = Image.fromarray(np.uint8(out_y), mode='L')
+                image = Image.merge('YCbCr', [y, cb, cr])
+            else:
+                pass
 
-        if self.additive_brightness:
-            y, cb, cr = image.split()
-            out_y = np.asarray(y) + self.additive_brightness
-            out_y = out_y.clip(0, 255)
-            y = Image.fromarray(np.uint8(out_y), mode='L')
-            image = Image.merge('YCbCr', [y, cb, cr])
-
-        if self.brightness_factor:
-            y, cb, cr = image.split()
-            y_ = np.asarray(y)
-            out_y = y_ - self.brightness_offset
-            out_y = y_ + ((self.brightness_factor / 255) * out_y)
-            out_y = out_y.clip(0, 255)
-            y = Image.fromarray(np.uint8(out_y), mode='L')
-            image = Image.merge('YCbCr', [y, cb, cr])
-            
-        if image_transforms:
-            composed_transform = Compose(image_transforms)
-            self.transformed = composed_transform(image)
-            
-            if self.rotation:
-                # Get new input size for the maximum area of rotated image if downsampled
-                if self.scale:
-                    input_width, input_height = self.transformed.size
-                self.transformed = rotate_max_area(self.transformed,
-                                                   input_width,
-                                                   input_height,
-                                                   self.rotation)
-        else:
-            self.transformed = image.copy()
+        self.transformed = image.copy()
 
         if self.params:
             self._make_subimages()
@@ -381,24 +359,27 @@ class DatasetFromFolder:
         output_filename = basename(self.current_image_file)
         label =  ''
 
-        if self.rotation:
-            label = label + "_rotate_" + str(self.rotation)
-        if self.scale:
-            label = label + "_scale_" + str(self.scale)
-        if self.x_offset or self.y_offset:
-            label = (label + "_translate_x_" + str(self.x_offset) +
-                     "_y_" + str(self.y_offset))
-        if self.flip_horizontal:
-            label = label + "_flip_lr"
-        if self.flip_vertical:
-            label = label + "_flip_tb"        
-        if self.tilt_angle:
-            label = label + "_tilt_" + str(self.tilt_angle)
-        if self.additive_brightness:
-            label = label + "_brightness_add_" + str(self.additive_brightness)
-        if self.brightness_factor:
-            label = (label + "_brightness_mul_" + str(self.brightness_factor) +
-                     "_" + str(self.brightness_offset))
+        for transform, value in self.transforms.items():
+            if transform == 'flip_horizontal':
+                label = label + "_flip_lr"
+            elif transform == 'flip_vertical':
+                label = label + "_flip_tb"
+            elif transform == 'rotate':
+                label = label + "_rotate_" + str(value)
+            elif transform == 'translate':
+                label = (label + "_translate_x_" + str(value[0]) +
+                         "_y_" + str(value[1]))
+            elif transform == 'tilt_angle':
+                label = label + "_tilt_" + str(value)
+            elif transform == 'scale':
+                label = label + "_scale_" + str(value)
+            elif transform == 'additive_brightness':
+                label = label + "_brightness_add_" + str(value)
+            elif transform == 'brightness':
+                label = (label + "_brightness_mul_" + str(value[0]) +
+                         "_" + str(value[1]))
+            else:
+                pass
 
         if label:
             output_filename = splitext(output_filename)[0] + label + '.png'

@@ -1,5 +1,6 @@
 import argparse, sys
 
+from collections import OrderedDict
 from dataset import DatasetFromFolder
 
 parser = argparse.ArgumentParser(description='Data augmentation for super resolution')
@@ -59,31 +60,38 @@ parser.add_argument('--save_dataset',
                     action='store_true',
                     help="save dataset csv")
 
+def compose_transforms(opt, args):
+    transforms = OrderedDict()
+    
+    for arg in args:
+        if 'rotate' in arg:
+            transforms['rotate'] = opt.rotate
+        elif 'scale' in arg:
+            transforms['scale'] = opt.scale
+        elif 'flip_horizontal' in  arg:
+            transforms['flip_horizontal'] = None
+        elif 'flip_vertical' in arg:
+            transforms['flip_vertical'] = None
+        elif 'tilt_angle' in arg:
+            transforms['tilt_angle'] = opt.tilt_angle
+        elif 'translate' in arg:
+            transforms['translate'] = opt.translate
+        elif 'additive_brightness' in arg:
+            transforms['additive_brightness'] = opt.additive_brightness
+        elif 'brightness' in arg:
+            transforms['brightness'] = opt.brightness
+        else:
+            pass
+
+    return transforms
+    
+
 def main(args):
     opt = parser.parse_args(args)
 
-    if opt.brightness:
-        brightness = opt.brightness
-    else:
-        brightness = (0, 0)
-
-    if opt.translate:
-        translate = opt.translate
-    else:
-        translate = (0, 0)
-
     with DatasetFromFolder(image_dir=opt.image_folder,
                            sample_size=opt.sample_size,
-                           rotation=opt.rotate,
-                           scale=opt.scale,
-                           x_offset=translate[0],
-                           y_offset=translate[1],
-                           flip_horizontal=opt.flip_horizontal,
-                           flip_vertical=opt.flip_vertical,
-                           tilt_angle=opt.tilt_angle,
-                           additive_brightness=opt.additive_brightness,
-                           brightness_factor=brightness[0],
-                           brightness_offset=brightness[1],
+                           transforms=compose_transforms(opt, args),
                            dataset_csv=opt.dataset_csv,
                            hdf5_path=opt.hdf5_path) as sampled_dataset:
         for input_image in sampled_dataset:
