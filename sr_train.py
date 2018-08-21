@@ -144,6 +144,7 @@ def prepare_environment():
 def is_sufficiently_trained():
     global moving_windows, means, test_results, c
     global opt, model
+    scaling_transform = {}
     
     for scale in opt.scale:
         if not scale in moving_windows:
@@ -152,10 +153,11 @@ def is_sufficiently_trained():
             means[scale] = 0
             
         average_psnr = 0
+        scaling_transform['scale'] = scale
         sampled_dataset = DatasetFromFolder(image_dir=opt.test_images,
                                             dataset_csv='validation.csv',
                                             sample_size=opt.sample_size,
-                                            scale=scale)
+                                            transforms=scaling_transform)
 
         for ground_truth in sampled_dataset:
             downsampled_image = sampled_dataset.transform(ground_truth)
