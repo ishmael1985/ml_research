@@ -11,15 +11,18 @@ parser.add_argument('--image_folder',
 parser.add_argument('--rotate',
                     type=int,
                     required=False,
+                    action='append',
                     help="rotation in degrees (-180 to 180)")
 parser.add_argument('--scale',
                     type=float,
                     required=False,
+                    action='append',
                     help="downsampling factor")
 parser.add_argument('--translate',
                     type=int,
                     nargs='+',
                     required=False,
+                    action='append',
                     help="translate image specifying x and y offsets")
 parser.add_argument('--flip_horizontal',
                     action='store_true',
@@ -30,14 +33,17 @@ parser.add_argument('--flip_vertical',
 parser.add_argument('--tilt_angle',
                     type=float,
                     required=False,
+                    action='append',
                     help="tilt angle")
 parser.add_argument('--additive_brightness',
                     type=int,
                     required=False,
+                    action='append',
                     help="change brightness with additive pixel value")
 parser.add_argument('--brightness',
                     type=float,
                     nargs='+',
+                    action='append',
                     required=False,
                     help="change brightness with factor and offset")
 parser.add_argument('--sample_size',
@@ -63,23 +69,23 @@ parser.add_argument('--save_dataset',
 def compose_transforms(opt, args):
     transforms = OrderedDict()
     
-    for arg in args:
-        if 'rotate' in arg:
-            transforms['rotate'] = opt.rotate
-        elif 'scale' in arg:
-            transforms['scale'] = opt.scale
-        elif 'flip_horizontal' in  arg:
-            transforms['flip_horizontal'] = None
-        elif 'flip_vertical' in arg:
-            transforms['flip_vertical'] = None
-        elif 'tilt_angle' in arg:
-            transforms['tilt_angle'] = opt.tilt_angle
-        elif 'translate' in arg:
-            transforms['translate'] = opt.translate
-        elif 'additive_brightness' in arg:
-            transforms['additive_brightness'] = opt.additive_brightness
-        elif 'brightness' in arg:
-            transforms['brightness'] = opt.brightness
+    for n, arg in enumerate(args, 1):
+        if '--rotate' in arg:
+            transforms['rotate' + str(n)] = opt.rotate.pop(0)
+        elif '--scale' in arg:
+            transforms['scale' + str(n)] = opt.scale.pop(0)
+        elif '--flip_horizontal' in  arg:
+            transforms['flip_horizontal' + str(n)] = None
+        elif '--flip_vertical' in arg:
+            transforms['flip_vertical' + str(n)] = None
+        elif '--tilt_angle' in arg:
+            transforms['tilt_angle' + str(n)] = opt.tilt_angle.pop(0)
+        elif '--translate' in arg:
+            transforms['translate' + str(n)] = opt.translate.pop(0)
+        elif '--additive_brightness' in arg:
+            transforms['additive_brightness' + str(n)] = opt.additive_brightness.pop(0)
+        elif '--brightness' in arg:
+            transforms['brightness' + str(n)] = opt.brightness.pop(0)
         else:
             pass
 

@@ -289,13 +289,12 @@ class DatasetFromFolder:
     def transform(self, image):
         for transform, value in self.transforms.items():
             input_width, input_height = image.size
-            if transform == 'flip_horizontal':
+            if 'flip_horizontal' in transform:
                 image = image.transpose(Image.FLIP_LEFT_RIGHT)
-            elif transform == 'flip_vertical':
+            elif 'flip_vertical' in transform:
                 image = image.transpose(Image.FLIP_TOP_BOTTOM)
-            elif transform == 'rotate':
-                image_transforms = [RandomRotation(degrees=(value,
-                                                            value),
+            elif 'rotate' in transform:
+                image_transforms = [RandomRotation(degrees=(value, value),
                                                    expand=True,
                                                    resample=Image.BICUBIC)]
                 composed_transform = Compose(image_transforms)
@@ -305,7 +304,7 @@ class DatasetFromFolder:
                                         input_width,
                                         input_height,
                                         value)
-            elif transform == 'translate':
+            elif 'translate' in transform:
                 a = 1
                 b = 0
                 c = value[0]
@@ -316,10 +315,10 @@ class DatasetFromFolder:
                 translate = image.transform(image.size, Image.AFFINE,
                                             (a, b, -c, d, e, -f))
                 image = translate.crop(translate.getbbox())
-            elif transform == 'tilt_angle':
+            elif 'tilt_angle' in transform:
                 tilt_angle = max(0, min(value, 85))
                 image = self.get_low_angle_perspective(image, -tilt_angle)
-            elif transform == 'scale':
+            elif 'scale' in transform:
                 cropped_width, cropped_height = calculate_cropped_size(input_width,
                                                                        input_height,
                                                                        value)
@@ -330,13 +329,13 @@ class DatasetFromFolder:
                                            interpolation=Image.BICUBIC)]
                 composed_transform = Compose(image_transforms)
                 image = composed_transform(image)
-            elif transform == 'additive_brightness':
+            elif 'additive_brightness' in transform:
                 y, cb, cr = image.split()
                 out_y = np.asarray(y) + value
                 out_y = out_y.clip(0, 255)
                 y = Image.fromarray(np.uint8(out_y), mode='L')
                 image = Image.merge('YCbCr', [y, cb, cr])
-            elif transform == 'brightness':
+            elif 'brightness' in transform:
                 y, cb, cr = image.split()
                 y_ = np.asarray(y)
                 out_y = y_ - value[1]
@@ -360,22 +359,22 @@ class DatasetFromFolder:
         label =  ''
 
         for transform, value in self.transforms.items():
-            if transform == 'flip_horizontal':
+            if 'flip_horizontal' in transform:
                 label = label + "_flip_lr"
-            elif transform == 'flip_vertical':
+            elif 'flip_vertical' in transform:
                 label = label + "_flip_tb"
-            elif transform == 'rotate':
+            elif 'rotate' in transform:
                 label = label + "_rotate_" + str(value)
-            elif transform == 'translate':
+            elif 'translate' in transform:
                 label = (label + "_translate_x_" + str(value[0]) +
                          "_y_" + str(value[1]))
-            elif transform == 'tilt_angle':
+            elif 'tilt_angle' in transform:
                 label = label + "_tilt_" + str(value)
-            elif transform == 'scale':
+            elif 'scale' in transform:
                 label = label + "_scale_" + str(value)
-            elif transform == 'additive_brightness':
+            elif 'additive_brightness' in transform:
                 label = label + "_brightness_add_" + str(value)
-            elif transform == 'brightness':
+            elif 'brightness' in transform:
                 label = (label + "_brightness_mul_" + str(value[0]) +
                          "_" + str(value[1]))
             else:
