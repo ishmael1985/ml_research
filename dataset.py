@@ -97,9 +97,9 @@ class DatasetFromFolder:
                 
         if not self.image_filenames:
             self.image_filenames = get_images(self.image_dir)
-            if sample_size > 0:
-                self.image_filenames = random.sample(self.image_filenames,
-                                                     sample_size)
+        if sample_size > 0 and sample_size < len(self.image_filenames):
+            self.image_filenames = random.sample(self.image_filenames,
+                                                 sample_size)
         self.transforms = transforms
         self.hdf5_path = hdf5_path
         self.sub_inputs = []

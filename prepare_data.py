@@ -20,7 +20,7 @@ parser.add_argument('--scale',
                     help="downsampling factor")
 parser.add_argument('--translate',
                     type=int,
-                    nargs='+',
+                    nargs=2,
                     required=False,
                     action='append',
                     help="translate image specifying x and y offsets")
@@ -42,7 +42,7 @@ parser.add_argument('--additive_brightness',
                     help="change brightness with additive pixel value")
 parser.add_argument('--brightness',
                     type=float,
-                    nargs='+',
+                    nargs=2,
                     action='append',
                     required=False,
                     help="change brightness with factor and offset")
