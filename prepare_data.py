@@ -19,7 +19,7 @@ parser.add_argument('--scale',
                     action='append',
                     help="downsampling factor")
 parser.add_argument('--translate',
-                    type=int,
+                    type=float,
                     nargs=2,
                     required=False,
                     action='append',

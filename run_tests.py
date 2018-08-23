@@ -129,7 +129,10 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
                             val = str(1 / float(m.group('v')))
                             aug_args.append(val)
                         elif m.group('t') == 'Bm' or m.group('t') == 'Tr':
-                            aug_args.extend(m.group('v').split(','))
+                            vals = m.group('v').split(',')
+                            if m.group('t') == 'Tr':
+                                vals = [str(float(val)*2) for val in vals]
+                            aug_args.extend(vals)
                         else:
                             aug_args.append(m.group('v'))
             prepare_data.main(aug_args)
