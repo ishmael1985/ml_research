@@ -1,7 +1,7 @@
 import os, re, sys, argparse
 
 from openpyxl import load_workbook
-from shutil import move, copy2, rmtree
+from shutil import move, rmtree
 from collections import OrderedDict
 import io
 
@@ -104,18 +104,13 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
     for i in range(1, repetitions+1):
         args = ['--image_folder', opt.training_images,
                 '--sample_size', str(train_size),
-                '--save_images']
+                '--save_images', '--save_dataset']
         if opt.train_csv:
             args.extend(['--dataset_csv', opt.train_csv])
-        else:
-            args.append('--save_dataset')
         prepare_data.main(args)
         
-        args = ['--image_folder', opt.training_images, '--save_images']
-        if opt.train_csv:
-            args.extend(['--dataset_csv', opt.train_csv])
-        else:
-            args.extend(['--dataset_csv', 'dataset.csv'])
+        args = ['--image_folder', opt.training_images,
+                '--dataset_csv', 'dataset.csv', '--save_images']
         transforms_list = [i.strip() for i in transforms_str.split(';')]
         for transform_combination in transforms_list:
             transforms = [i.strip() for i in transform_combination.split('&')]
@@ -140,11 +135,7 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         # Generate nonaugmented dataset consisting of original images
         # downsampled by 2
         args = ['--image_folder', 'generated', '--scale', '2',
-                '--hdf5_path', 'train.h5']
-        if opt.train_csv:
-            args.extend(['--dataset_csv', opt.train_csv])
-        else:
-            args.extend(['--dataset_csv', 'dataset.csv'])
+                '--hdf5_path', 'train.h5', '--dataset_csv', 'dataset.csv']
         prepare_data.main(args)
         
         # Start training for nonaugmented dataset
@@ -168,11 +159,9 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         args = ['--image_folder', opt.test_images,
                 '--sample_size', str(test_size),
                 '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_nonaugmented),
-                '--scale', '2', '--cuda', '--save_result']
+                '--scale', '2', '--cuda', '--save_test', '--save_result']
         if opt.test_csv:
             args.extend(['--load_test', opt.test_csv])
-        else:
-            args.append('--save_test')
         sr_test.main(args)
         
         # Save HDF5 nonaugmented training dataset, models and results
@@ -210,11 +199,8 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         args = ['--image_folder', opt.test_images,
                 '--sample_size', str(test_size),
                 '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_augmented),
-                '--scale', '2', '--cuda', '--save_result']
-        if opt.test_csv:
-            args.extend(['--load_test', opt.test_csv])
-        else:
-            args.extend(['--load_test', 'test.csv'])
+                '--scale', '2', '--cuda', '--load_test', 'test.csv',
+                '--save_result']
         sr_test.main(args)
 
         # Save HDF5 augmented training dataset and results
@@ -224,15 +210,8 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
              'checkpoints/{}/checkpoint_augmented_{}'.format(id, i))
 
         # Save training and test dataset information
-        if opt.train_csv:
-            copy2(opt.train_csv, 'datasets/{}/dataset_{}.csv'.format(id, i))
-        else:
-            move('dataset.csv', 'datasets/{}/dataset_{}.csv'.format(id, i))
-
-        if opt.test_csv:
-            copy2(opt.test_csv, 'tests/{}/test_{}.csv'.format(id, i))
-        else:
-            move('test.csv', 'tests/{}/test_{}.csv'.format(id, i))
+        move('dataset.csv', 'datasets/{}/dataset_{}.csv'.format(id, i))
+        move('test.csv', 'tests/{}/test_{}.csv'.format(id, i))
 
         # Delete images for the next iteration
         rmtree('generated')
