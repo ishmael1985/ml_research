@@ -1,7 +1,7 @@
 import os, re, sys, argparse
 
 from openpyxl import load_workbook
-from shutil import move, rmtree
+from shutil import move, copy2, rmtree
 from collections import OrderedDict
 import io
 
@@ -42,6 +42,12 @@ parser.add_argument('--analyze_only',
 parser.add_argument('--plot',
                     action='store_true',
                     help="plot graphs during analysis mode")
+parser.add_argument('--reuse_model',
+                    action='store_true',
+                    help="reuse models trained with non-augmented datasets")
+parser.add_argument('--reuse_test',
+                    action='store_true',
+                    help="reuse tests")
 
 opt = parser.parse_args()
 wb = load_workbook(filename=opt.worksheet)
@@ -80,7 +86,9 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
     import prepare_data
     import sr_train
     import sr_test
-        
+
+    saved_models = {}
+    saved_tests = {}
     transform_args = {
         'Sc': '--scale',
         'Ro': '--rotate',
@@ -132,45 +140,75 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
                             aug_args.append(m.group('v'))
             prepare_data.main(aug_args)
 
-        # Generate nonaugmented dataset consisting of original images
-        # downsampled by 2
-        args = ['--image_folder', 'generated', '--scale', '2',
-                '--hdf5_path', 'train.h5', '--dataset_csv', 'dataset.csv']
-        prepare_data.main(args)
+        if str(train_size) not in saved_models:
+            # Generate nonaugmented dataset consisting of original images
+            # downsampled by 2
+            args = ['--image_folder', 'generated', '--scale', '2',
+                    '--hdf5_path', 'train.h5', '--dataset_csv', 'dataset.csv']
+            prepare_data.main(args)
+            
+            # Start training for nonaugmented dataset
+            args = ['--threads', '0', '--cuda',
+                    '--nEpochs', str(epochs_nonaugmented)]
+            # Use auto-termination for first repetition only
+            if i == 1:
+                args = args +  ['--test_images', opt.test_images,
+                                '--sample_size', '100',
+                                '--scale', '2']
+            sr_train.main(args)
+            
+            # Test model and save results
+            if i == 1:
+                epochs = [int(models_regex.match(f).group('epoch')) \
+                          for f in os.listdir('checkpoint') \
+                          if models_regex.match(f)]
+                # Update the epoch limit once number of epochs required to
+                # fully train the network is determined from the first repetition
+                epochs_nonaugmented = max(epochs)
+            args = ['--image_folder', opt.test_images,
+                    '--sample_size', str(test_size),
+                    '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_nonaugmented),
+                    '--scale', '2', '--cuda', '--save_test', '--save_result']
+            if opt.test_csv:
+                args.extend(['--load_test', opt.test_csv])
+            sr_test.main(args)
         
-        # Start training for nonaugmented dataset
-        args = ['--threads', '0', '--cuda',
-                '--nEpochs', str(epochs_nonaugmented)]
-        # Use auto-termination for first repetition only
-        if i == 1:
-            args = args +  ['--test_images', opt.test_images,
-                            '--sample_size', '100',
-                            '--scale', '2']
-        sr_train.main(args)
+            # Save HDF5 nonaugmented training dataset, models and results
+            move('dataset.csv', 'datasets/{}/dataset_{}.csv'.format(id, i))
+            move('train.h5',
+                 'datasets/{}/train_nonaugmented_{}.h5'.format(id, i))
+            move('results.csv',
+                 'results/{}/results_nonaugmented_{}.csv'.format(id, i))
+            move('checkpoint',
+                 'checkpoints/{}/checkpoint_nonaugmented_{}'.format(id, i))
+        else:
+            copy2(saved_models[str(train_size)][0],
+                  'datasets/{}/dataset_{}.csv'.format(id, i))
+            copy2(saved_models[str(train_size)][1],
+                  'datasets/{}/train_nonaugmented_{}.h5'.format(id, i))
+            copy2(saved_models[str(train_size)][2],
+                  'results/{}/results_nonaugmented_{}.csv'.format(id, i))
+            copy2(saved_models[str(train_size)][3],
+                  'checkpoints/{}/checkpoint_nonaugmented_{}'.format(id, i))
+
+        # Save tests
+        test = 'tests/{}/test_{}.csv'.format(id, i)
+        if str(test_size) not in saved_tests:
+            move('test.csv', test)
+        else:
+            copy2(saved_tests[str(test_size)], test)
         
-        # Test model and save results
-        if i == 1:
-            epochs = [int(models_regex.match(f).group('epoch')) \
-                      for f in os.listdir('checkpoint') \
-                      if models_regex.match(f)]
-            # Update the epoch limit once number of epochs required to
-            # fully train the network is determined from the first repetition
-            epochs_nonaugmented = max(epochs)
-        args = ['--image_folder', opt.test_images,
-                '--sample_size', str(test_size),
-                '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_nonaugmented),
-                '--scale', '2', '--cuda', '--save_test', '--save_result']
-        if opt.test_csv:
-            args.extend(['--load_test', opt.test_csv])
-        sr_test.main(args)
-        
-        # Save HDF5 nonaugmented training dataset, models and results
-        move('train.h5',
-             'datasets/{}/train_nonaugmented_{}.h5'.format(id, i))
-        move('results.csv',
-             'results/{}/results_nonaugmented_{}.csv'.format(id, i))
-        move('checkpoint',
-             'checkpoints/{}/checkpoint_nonaugmented_{}'.format(id, i))
+        # Keep a record of models to reuse based on training dataset size
+        if opt.reuse_model and str(train_size) not in saved_models:
+            saved_models[str(train_size)] = (
+                'datasets/{}/dataset_{}.csv'.format(id, i),
+                'datasets/{}/train_nonaugmented_{}.h5'.format(id, i),
+                'results/{}/results_nonaugmented_{}.csv'.format(id, i),
+                'checkpoints/{}/checkpoint_nonaugmented_{}'.format(id, i))
+
+        # Keep a record of tests to reuse based on test dataset size
+        if opt.reuse_test and str(test_size) not in saved_tests:
+            saved_tests[str(test_size)] = test
 
         # Generate augmented dataset consisting of original and
         # transformed images downsampled by 2
@@ -196,11 +234,11 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
             # Update the epoch limit once number of epochs required to
             # fully train the network is determined from the first repetition
             ws['F'][test_ids[id]].value = epochs_augmented = max(epochs)
+        
         args = ['--image_folder', opt.test_images,
                 '--sample_size', str(test_size),
                 '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_augmented),
-                '--scale', '2', '--cuda', '--load_test', 'test.csv',
-                '--save_result']
+                '--scale', '2', '--cuda', '--load_test', test, '--save_result']
         sr_test.main(args)
 
         # Save HDF5 augmented training dataset and results
@@ -208,10 +246,6 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         move('results.csv', 'results/{}/results_augmented_{}.csv'.format(id, i))
         move('checkpoint',
              'checkpoints/{}/checkpoint_augmented_{}'.format(id, i))
-
-        # Save training and test dataset information
-        move('dataset.csv', 'datasets/{}/dataset_{}.csv'.format(id, i))
-        move('test.csv', 'tests/{}/test_{}.csv'.format(id, i))
 
         # Delete images for the next iteration
         rmtree('generated')
