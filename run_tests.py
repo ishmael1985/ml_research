@@ -53,6 +53,8 @@ opt = parser.parse_args()
 wb = load_workbook(filename=opt.worksheet)
 ws = wb.active
 test_ids = OrderedDict()
+saved_models = {}
+saved_tests = {}
 
 def analyze_results(id):
     real_stdout = sys.stdout
@@ -86,9 +88,7 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
     import prepare_data
     import sr_train
     import sr_test
-
-    saved_models = {}
-    saved_tests = {}
+    
     transform_args = {
         'Sc': '--scale',
         'Ro': '--rotate',
@@ -182,14 +182,15 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
             move('checkpoint',
                  'checkpoints/{}/checkpoint_nonaugmented_{}'.format(id, i))
         else:
+            dest = 'checkpoints/{}/checkpoint_nonaugmented_{}'.format(id, i)
+            os.makedirs(dest, exist_ok=True)
+            copy2(saved_models[str(train_size)][3], dest)
             copy2(saved_models[str(train_size)][0],
                   'datasets/{}/dataset_{}.csv'.format(id, i))
             copy2(saved_models[str(train_size)][1],
                   'datasets/{}/train_nonaugmented_{}.h5'.format(id, i))
             copy2(saved_models[str(train_size)][2],
-                  'results/{}/results_nonaugmented_{}.csv'.format(id, i))
-            copy2(saved_models[str(train_size)][3],
-                  'checkpoints/{}/checkpoint_nonaugmented_{}'.format(id, i))
+                  'results/{}/results_nonaugmented_{}.csv'.format(id, i))            
 
         # Save tests
         test = 'tests/{}/test_{}.csv'.format(id, i)
@@ -204,7 +205,7 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
                 'datasets/{}/dataset_{}.csv'.format(id, i),
                 'datasets/{}/train_nonaugmented_{}.h5'.format(id, i),
                 'results/{}/results_nonaugmented_{}.csv'.format(id, i),
-                'checkpoints/{}/checkpoint_nonaugmented_{}'.format(id, i))
+                'checkpoints/{}/checkpoint_nonaugmented_{}/model_epoch_{}.pth'.format(id, i, epochs_nonaugmented))
 
         # Keep a record of tests to reuse based on test dataset size
         if opt.reuse_test and str(test_size) not in saved_tests:
