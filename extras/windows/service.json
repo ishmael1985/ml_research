@@ -1,0 +1,12 @@
+{
+	"results_worksheet": "",
+	"share_drive": "",
+	"email": {
+		"sender": "",
+		"recipients": [],
+		"title": "",
+		"body": "",
+		"smtp_server": "",
+		"password": ""
+	}
+}
