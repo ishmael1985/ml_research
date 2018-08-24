@@ -37,42 +37,42 @@ parser.add_argument('--sample_size',
 parser.add_argument('--load_test',
                     type=str,
                     required=False,
-                    help="path to csv file containing specified set of images to load")
+                    help="csv file containing specified set of images to load")
 parser.add_argument('--save_test',
                     action='store_true',
-                    help="save set of images used for testing to specified csv file")
+                    help="save images used for testing to specified csv file")
 parser.add_argument('--save_result',
                     action='store_true',
                     help="save PSNR results")
 
 def main(args):
     opt = parser.parse_args(args)
-
-    model = torch.load(opt.model, map_location=lambda storage, loc: storage)["model"]
+    model = torch.load(opt.model,
+                       map_location=lambda storage, loc: storage)["model"]
     scaling_transform = {}
     
     if opt.save_result:
         results_file = open("results.csv", "w")
         results_csv = csv.writer(results_file)
 
+    sampled_dataset = DatasetFromFolder(image_dir=opt.image_folder,
+                                        sample_size=opt.sample_size,
+                                        dataset_csv=opt.load_test)
     for scale in opt.scale:
         average_psnr = 0
         average_bicubic_psnr = 0
         average_ssim = 0
         average_bicubic_ssim = 0
         scaling_transform['scale'] = scale
-        sampled_dataset = DatasetFromFolder(image_dir=opt.image_folder,
-                                            sample_size=opt.sample_size,
-                                            dataset_csv=opt.load_test,
-                                            transforms=scaling_transform)
 
         for ground_truth in sampled_dataset:
-            downsampled_image = sampled_dataset.transform(ground_truth)
+            downsampled_image = sampled_dataset.transform(ground_truth,
+                                                          scaling_transform)
             y = get_interpolated_image(downsampled_image.split()[0], scale)
             
-            input_image = Variable(ToTensor()(y), volatile=True).view(1, -1, y.size[1],
-                                                       y.size[0])
-
+            input_image = Variable(ToTensor()(y),
+                                   volatile=True).view(1, -1,
+                                                       y.size[1], y.size[0])
             if opt.cuda:
                 model = model.cuda()
                 input_image = input_image.cuda()
@@ -91,12 +91,6 @@ def main(args):
             gt_img = img_as_float(np.asarray(ground_truth.split()[0]))
             predicted = img_as_float(out_img_y)
             interpolated = img_as_float(np.asarray(y))
-            
-##            img = Image.fromarray(img_as_ubyte(out_img_y), 'L')
-##            gt = Image.fromarray(img_as_ubyte(gt_img), 'L')
-##            img.show()
-##            y.show()
-##            gt.show()
 
             psnr = compare_psnr(gt_img, predicted)
             ssim = compare_ssim(gt_img, predicted,

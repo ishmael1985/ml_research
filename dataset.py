@@ -77,8 +77,7 @@ def get_images(image_dir):
 
 
 class DatasetFromFolder:
-    def __init__(self, image_dir, transforms,
-                 sample_size=-1, hdf5_path='', dataset_csv=''):
+    def __init__(self, image_dir, sample_size=-1, hdf5_path='', dataset_csv=''):
         self.image_dir = image_dir
         self.script_dir = dirname(realpath(__file__))
         self.dest_dir = join(self.script_dir, 'generated')
@@ -100,7 +99,7 @@ class DatasetFromFolder:
         if sample_size > 0 and sample_size < len(self.image_filenames):
             self.image_filenames = random.sample(self.image_filenames,
                                                  sample_size)
-        self.transforms = transforms
+        self.transforms = {}
         self.hdf5_path = hdf5_path
         self.sub_inputs = []
         self.sub_labels = []
@@ -286,7 +285,8 @@ class DatasetFromFolder:
 
         return skewed_image.crop(bounding_box)
 
-    def transform(self, image):
+    def transform(self, image, transforms):
+        self.transforms = transforms
         for transform, value in self.transforms.items():
             input_width, input_height = image.size
             if 'flip_horizontal' in transform:

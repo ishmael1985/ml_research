@@ -97,11 +97,11 @@ def main(args):
 
     with DatasetFromFolder(image_dir=opt.image_folder,
                            sample_size=opt.sample_size,
-                           transforms=compose_transforms(opt, args),
                            dataset_csv=opt.dataset_csv,
                            hdf5_path=opt.hdf5_path) as sampled_dataset:
+        transforms = compose_transforms(opt, args)
         for input_image in sampled_dataset:
-            transformed_image = sampled_dataset.transform(input_image)
+            sampled_dataset.transform(input_image, transforms)
             if opt.save_images:
                 sampled_dataset.save_image()
 

@@ -141,26 +141,22 @@ def prepare_environment():
         else:
             print("=> no model found at '{}'".format(opt.pretrained))
             
-def is_sufficiently_trained():
+def is_sufficiently_trained(test_dataset):
     global moving_windows, means, test_results, c
     global opt, model
     scaling_transform = {}
     
     for scale in opt.scale:
+        average_psnr = 0
+        scaling_transform['scale'] = scale
         if not scale in moving_windows:
             moving_windows[scale] = deque(maxlen=window_size)
         if not scale in means:
             means[scale] = 0
-            
-        average_psnr = 0
-        scaling_transform['scale'] = scale
-        sampled_dataset = DatasetFromFolder(image_dir=opt.test_images,
-                                            dataset_csv='validation.csv',
-                                            sample_size=opt.sample_size,
-                                            transforms=scaling_transform)
 
-        for ground_truth in sampled_dataset:
-            downsampled_image = sampled_dataset.transform(ground_truth)
+        for ground_truth in test_dataset:
+            downsampled_image = test_dataset.transform(ground_truth,
+                                                       scaling_transform)
             y = get_interpolated_image(downsampled_image.split()[0], scale)
             
             input_image = Variable(ToTensor()(y),
@@ -189,7 +185,7 @@ def is_sufficiently_trained():
             psnr = compare_psnr(gt_img, predicted)
             average_psnr += psnr
 
-        sample_size = len(sampled_dataset.image_filenames)
+        sample_size = len(test_dataset.image_filenames)
         moving_windows[scale].appendleft(average_psnr / sample_size)
         if len(moving_windows[scale]) == window_size:
             new_mean = np.mean(list(moving_windows[scale]))
@@ -204,14 +200,9 @@ def is_sufficiently_trained():
 
         test_results[scale] = False
 
-    # This should only ever be executed once
-    if not os.path.isfile("validation.csv"):
-        sampled_dataset.save_dataset("validation.csv")
-
     if False in test_results.values():
         return False
     else:
-        os.remove("validation.csv")
         return True
 
 def adjust_learning_rate(optimizer, epoch):
@@ -256,6 +247,7 @@ def save_checkpoint(epoch):
     print("Checkpoint saved to {}".format(model_out_path))
 
 def main(args):
+    test_dataset = None
     global moving_windows, means, test_results, c
     global opt
     opt = parser.parse_args(args)
@@ -271,15 +263,17 @@ def main(args):
     print("===> Setting Optimizer")
     optimizer = optim.SGD(model.parameters(), lr=opt.lr,
                           momentum=opt.momentum, weight_decay=opt.weight_decay)
+    if opt.test_images:
+        validation_dataset = DatasetFromFolder(image_dir=opt.test_images,
+                                               sample_size=opt.sample_size)
     
     for epoch in range(opt.start_epoch, opt.nEpochs + 1):
         train(training_data_loader, optimizer, epoch)
         save_checkpoint(epoch)
 
-        if opt.test_images and opt.scale:
-            if is_sufficiently_trained():
-                print("Stopped training at {} epochs".format(epoch))
-                break
+        if validation_dataset and is_sufficiently_trained(validation_dataset):
+            print("Stopped training at {} epochs".format(epoch))
+            break
 
     # Reset global variables related to early termination
     moving_windows = {}
