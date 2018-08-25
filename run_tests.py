@@ -4,6 +4,7 @@ from openpyxl import load_workbook
 from shutil import move, copy2, rmtree
 from collections import OrderedDict
 import io
+import json
 
 os.chdir(sys.path[0])   # Ensure script is executed in its directory
 sys.path.append('extras')
@@ -55,14 +56,17 @@ ws = wb.active
 test_ids = OrderedDict()
 saved_models = {}
 saved_tests = {}
+scale_factors = []
 
 def analyze_results(id):
     real_stdout = sys.stdout
     fake_stdout = io.StringIO()
+
+    # If a list of scale factors has been specified, record only the last one
     try:
         sys.stdout = fake_stdout
         args = ['--results_folder', 'results/{}'.format(id),
-                '--scale', '2']
+                '--scale', scale_factors[-1]]
         if opt.plot:
             os.makedirs('results/{}/graphs'.format(id), exist_ok=True)
             args = args + ['--save_folder', 'results/{}/graphs'.format(id)]
@@ -81,8 +85,10 @@ def analyze_results(id):
             '(?P<deviation>\d+\.\d+)', re.DOTALL)
 
         for m in re.finditer(summary_regex, output):
-            ws['G'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('psnr_diff')))
-            ws['H'][test_ids[id]].value = '{0:.5f}'.format(float(m.group('deviation')))
+            ws['G'][test_ids[id]].value = '{0:.5f}'.format(
+                float(m.group('psnr_diff')))
+            ws['H'][test_ids[id]].value = '{0:.5f}'.format(
+                float(m.group('deviation')))
 
 def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
     import prepare_data
@@ -99,7 +105,8 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         'Ba': '--additive_brightness',
         'Bm': '--brightness',
     }
-    transform_regex = re.compile(r"(?P<t>\w+)\((?P<v>(-?\d+(\.\d+)?(,\s*-?\d+(\.\d+)?)*))?\)")
+    transform_regex = re.compile(
+        r"(?P<t>\w+)\((?P<v>(-?\d+(\.\d+)?(,\s*-?\d+(\.\d+)?)*))?\)")
     models_regex = re.compile('model_epoch_(?P<epoch>\d+).pth')
 
     epochs_nonaugmented = 80
@@ -153,8 +160,7 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
             # Use auto-termination for first repetition only
             if i == 1:
                 args = args +  ['--test_images', opt.test_images,
-                                '--sample_size', '100',
-                                '--scale', '2']
+                                '--sample_size', '100']
             sr_train.main(args)
             
             # Test model and save results
@@ -168,7 +174,8 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
             args = ['--image_folder', opt.test_images,
                     '--sample_size', str(test_size),
                     '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_nonaugmented),
-                    '--scale', '2', '--cuda', '--save_test', '--save_result']
+                    '--cuda', '--save_test', '--save_result']
+            args = args + ['--scale'] + scale_factors
             if opt.test_csv:
                 args.extend(['--load_test', opt.test_csv])
             sr_test.main(args)
@@ -223,8 +230,7 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         # Use auto-termination for first repetition only
         if i == 1:
             args = args +  ['--test_images', opt.test_images,
-                            '--sample_size', '100',
-                            '--scale', '2']
+                            '--sample_size', '100']
         sr_train.main(args)
 
         # Test model and save results
@@ -239,7 +245,8 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         args = ['--image_folder', opt.test_images,
                 '--sample_size', str(test_size),
                 '--model', 'checkpoint/model_epoch_{}.pth'.format(epochs_augmented),
-                '--scale', '2', '--cuda', '--load_test', test, '--save_result']
+                '--cuda', '--load_test', test, '--save_result']
+        args = args + ['--scale'] + scale_factors
         sr_test.main(args)
 
         # Save HDF5 augmented training dataset and results
@@ -272,6 +279,11 @@ def main():
                             zip(transforms_list, repetitions_list,
                                 train_dataset_sizes, test_dataset_sizes)))
 
+    with open("hdf5.json", "r") as config:
+        global scale_factors
+        scale_factors = json.load(config)["upscale_factors"]
+        scale_factors = [str(scale) for scale in scale_factors]
+    
     for id, params in tests.items():
         if opt.test_ids and str(id) not in opt.test_ids:
             continue
