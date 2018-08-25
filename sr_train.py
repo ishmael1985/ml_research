@@ -200,11 +200,9 @@ class VDSRModel:
 
 
     def validate_model(self):
-        scale_transform = {}
-    
         for scale in self.upscale_factors:
             average_psnr = 0
-            scale_transform['scale'] = scale
+            scale_transform = [('scale', scale)]
 
             for ground_truth in self.test_dataset:
                 downsampled_image = self.test_dataset.transform(ground_truth,

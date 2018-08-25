@@ -1,6 +1,5 @@
 import argparse, sys
 
-from collections import OrderedDict
 from dataset import DatasetFromFolder
 
 parser = argparse.ArgumentParser(description='Data augmentation for super resolution')
@@ -67,25 +66,26 @@ parser.add_argument('--save_dataset',
                     help="save dataset csv")
 
 def compose_transforms(opt, args):
-    transforms = OrderedDict()
+    transforms = []
     
-    for n, arg in enumerate(args, 1):
-        if '--rotate' in arg:
-            transforms['rotate' + str(n)] = opt.rotate.pop(0)
-        elif '--scale' in arg:
-            transforms['scale' + str(n)] = opt.scale.pop(0)
-        elif '--flip_horizontal' in  arg:
-            transforms['flip_horizontal' + str(n)] = None
-        elif '--flip_vertical' in arg:
-            transforms['flip_vertical' + str(n)] = None
-        elif '--tilt_angle' in arg:
-            transforms['tilt_angle' + str(n)] = opt.tilt_angle.pop(0)
-        elif '--translate' in arg:
-            transforms['translate' + str(n)] = opt.translate.pop(0)
-        elif '--additive_brightness' in arg:
-            transforms['additive_brightness' + str(n)] = opt.additive_brightness.pop(0)
-        elif '--brightness' in arg:
-            transforms['brightness' + str(n)] = opt.brightness.pop(0)
+    for arg in args:
+        if arg == '--rotate':
+            transforms.append(('rotate', opt.rotate.pop(0)))
+        elif arg == '--scale':
+            transforms.append(('scale', opt.scale.pop(0)))
+        elif arg == '--flip_horizontal':
+            transforms.append(('flip_horizontal', None))
+        elif arg == '--flip_vertical':
+            transforms.append(('flip_vertical', None))
+        elif arg == '--tilt_angle':
+            transforms.append(('tilt_angle', opt.tilt_angle.pop(0)))
+        elif arg == '--translate':
+            transforms.append(('translate', opt.translate.pop(0)))
+        elif arg == '--additive_brightness':
+            transforms.append(('additive_brightness',
+                               opt.additive_brightness.pop(0)))
+        elif arg == '--brightness':
+            transforms.append(('brightness', opt.brightness.pop(0)))
         else:
             pass
 

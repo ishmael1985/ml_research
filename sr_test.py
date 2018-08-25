@@ -49,7 +49,6 @@ def main(args):
     opt = parser.parse_args(args)
     model = torch.load(opt.model,
                        map_location=lambda storage, loc: storage)["model"]
-    scaling_transform = {}
     
     if opt.save_result:
         results_file = open("results.csv", "w")
@@ -63,11 +62,11 @@ def main(args):
         average_bicubic_psnr = 0
         average_ssim = 0
         average_bicubic_ssim = 0
-        scaling_transform['scale'] = scale
+        scale_transform = [('scale', scale)]
 
         for ground_truth in sampled_dataset:
             downsampled_image = sampled_dataset.transform(ground_truth,
-                                                          scaling_transform)
+                                                          scale_transform)
             y = get_interpolated_image(downsampled_image.split()[0], scale)
             
             input_image = Variable(ToTensor()(y),
