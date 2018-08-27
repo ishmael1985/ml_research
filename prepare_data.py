@@ -60,7 +60,10 @@ parser.add_argument('--hdf5_path',
                     help="output hdf5 file")
 parser.add_argument('--save_images',
                     action='store_true',
-                    help="save images")
+                    help="save images in RGB format")
+parser.add_argument('--save_grayscale',
+                    action='store_true',
+                    help="save images in lossless grayscale format")
 parser.add_argument('--save_dataset',
                     action='store_true',
                     help="save dataset csv")
@@ -102,8 +105,8 @@ def main(args):
         transforms = compose_transforms(opt, args)
         for input_image in sampled_dataset:
             sampled_dataset.transform(input_image, transforms)
-            if opt.save_images:
-                sampled_dataset.save_image()
+            if opt.save_images or opt.save_grayscale:
+                sampled_dataset.save_image(opt.save_grayscale)
 
         if opt.save_dataset:
             sampled_dataset.save_dataset("dataset.csv")

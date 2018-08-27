@@ -125,7 +125,7 @@ def run_test_cycle(id, transforms_str, repetitions, train_size, test_size):
         prepare_data.main(args)
         
         args = ['--image_folder', opt.training_images,
-                '--dataset_csv', 'dataset.csv', '--save_images']
+                '--dataset_csv', 'dataset.csv', '--save_grayscale']
         transforms_list = [i.strip() for i in transforms_str.split(';')]
         for transform_combination in transforms_list:
             transforms = [i.strip() for i in transform_combination.split('&')]

@@ -353,7 +353,7 @@ class DatasetFromFolder:
 
         return self.transformed
         
-    def save_image(self):
+    def save_image(self, grayscale=False):
         makedirs(self.dest_dir, exist_ok=True)
         output_filename = basename(self.current_image_file)
         label =  ''
@@ -381,8 +381,13 @@ class DatasetFromFolder:
                 pass
 
         if label:
-            output_filename = splitext(output_filename)[0] + label + '.png'
-            output_image =  self.transformed.convert('RGB')
+            output_filename = splitext(output_filename)[0] + label
+            if grayscale:
+                output_filename = output_filename + '.tif'
+                output_image =  self.transformed.convert('L')
+            else:
+                output_filename = output_filename + '.png'
+                output_image = self.transformed.convert('RGB')
             output_image.save(join(self.dest_dir, output_filename))
         else:
             copy2(join(self.image_dir, self.current_image_file), self.dest_dir)
