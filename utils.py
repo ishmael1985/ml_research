@@ -7,7 +7,7 @@ from torchvision.transforms import CenterCrop, Compose, Resize
 from skimage.color import rgb2ycbcr
 
 def is_image_file(filename):
-    return any(filename.endswith(extension) for extension in [".bmp", ".png", ".jpg", ".jpeg"])
+    return any(filename.endswith(extension) for extension in [".bmp", ".png", ".jpg", ".jpeg", ".tif"])
 
 def load_img(filepath):
     image = Image.open(filepath)
