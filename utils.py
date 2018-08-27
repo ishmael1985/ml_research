@@ -1,10 +1,8 @@
-import math
 import numpy as np
 import h5py
 
 from PIL import Image
 from torchvision.transforms import CenterCrop, Compose, Resize
-from skimage.color import rgb2ycbcr
 
 def is_image_file(filename):
     return any(filename.endswith(extension) for extension in [".bmp", ".png", ".jpg", ".jpeg", ".tif"])
@@ -12,8 +10,7 @@ def is_image_file(filename):
 def load_img(filepath):
     image = Image.open(filepath)
     if image.mode == 'RGB':
-        ycbcr_image = rgb2ycbcr(np.asarray(image))
-        return Image.fromarray(ycbcr_image.astype('uint8'), 'YCbCr')
+        return image.convert('YCbCr')
     else:
         return image
 
