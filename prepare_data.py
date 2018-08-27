@@ -11,7 +11,7 @@ parser.add_argument('--rotate',
                     type=int,
                     required=False,
                     action='append',
-                    help="rotation in degrees (-180 to 180)")
+                    help="rotation in degrees")
 parser.add_argument('--scale',
                     type=float,
                     required=False,

@@ -15,7 +15,6 @@ from PIL import Image
 from torchvision.transforms import (
     CenterCrop,
     Resize,
-    RandomRotation,
     Compose
 )
 from utils import is_image_file, load_img
@@ -294,16 +293,13 @@ class DatasetFromFolder:
             elif transform == 'flip_vertical':
                 image = image.transpose(Image.FLIP_TOP_BOTTOM)
             elif transform == 'rotate':
-                image_transforms = [RandomRotation(degrees=(value, value),
-                                                   expand=True,
-                                                   resample=Image.BICUBIC)]
-                composed_transform = Compose(image_transforms)
-                image = composed_transform(image)
+                image = image.rotate(value, resample=Image.BICUBIC, expand=True)
 
-                image = rotate_max_area(image,
-                                        input_width,
-                                        input_height,
-                                        value)
+                if (value % 90):
+                    image = rotate_max_area(image,
+                                            input_width,
+                                            input_height,
+                                            value)
             elif transform == 'translate':
                 a = 1
                 b = 0
