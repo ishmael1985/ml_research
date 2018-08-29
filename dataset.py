@@ -327,13 +327,13 @@ class DatasetFromFolder:
                 image = composed_transform(image)
             elif transform == 'additive_brightness':
                 y, cb, cr = image.split()
-                out_y = np.asarray(y) + value
+                out_y = np.asarray(y, dtype=np.float32) + value
                 out_y = out_y.clip(0, 255)
                 y = Image.fromarray(np.uint8(out_y), mode='L')
                 image = Image.merge('YCbCr', [y, cb, cr])
             elif transform == 'brightness':
                 y, cb, cr = image.split()
-                y_ = np.asarray(y)
+                y_ = np.asarray(y, dtype=np.float32)
                 out_y = y_ - value[1]
                 out_y = y_ + ((value[0] / 255) * out_y)
                 out_y = out_y.clip(0, 255)
