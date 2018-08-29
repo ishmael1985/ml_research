@@ -33,8 +33,8 @@ parser.add_argument("--lr",
                     help="Learning Rate. Default=0.1")
 parser.add_argument("--step",
                     type=int,
-                    default=10,
-                    help="Sets the learning rate to the initial LR decayed by momentum every n epochs, Default: n=10")
+                    default=20,
+                    help="Sets the learning rate to the initial LR decayed by momentum every n epochs, Default: n=20")
 parser.add_argument("--cuda",
                     action="store_true",
                     help="Use cuda?")
