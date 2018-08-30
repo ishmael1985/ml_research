@@ -79,7 +79,7 @@ def analyze_results(id):
 
         summary_regex = re.compile(
             'Global average performance difference :\s+'
-            '(?P<psnr_diff>\d+\.\d+)'
+            '(?P<psnr_diff>-?\d+\.\d+)'
             '.*?'
             'Estimated total standard deviation :\s+'
             '(?P<deviation>\d+\.\d+)', re.DOTALL)
