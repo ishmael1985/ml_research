@@ -133,11 +133,8 @@ class DatasetFromFolder:
 
     def __exit__(self, type, value, traceback):
         if self.hdf5_path:
-            # Efficient random shuffling in place
-            perm = np.random.permutation(len(self.sub_inputs))
-            
-            inputs = np.asarray(self.sub_inputs, dtype=np.float32)[perm]
-            labels = np.asarray(self.sub_labels, dtype=np.float32)[perm]
+            inputs = np.asarray(self.sub_inputs, dtype=np.float32)
+            labels = np.asarray(self.sub_labels, dtype=np.float32)
             
             with h5py.File(self.hdf5_path, 'a') as hf:
                 hf["data"].resize((hf["data"].shape[0] + inputs.shape[0]),
@@ -220,13 +217,10 @@ class DatasetFromFolder:
 
         self.image_count = self.image_count + 1
         if (self.image_count % batch_size) == 0:
-            # Efficient random shuffling in place
-            perm = np.random.permutation(len(self.sub_inputs))
-
-            inputs = np.asarray(self.sub_inputs, dtype=np.float32)[perm]
+            inputs = np.asarray(self.sub_inputs, dtype=np.float32)
             self.sub_inputs = []
 
-            labels = np.asarray(self.sub_labels, dtype=np.float32)[perm]
+            labels = np.asarray(self.sub_labels, dtype=np.float32)
             self.sub_labels = []
 
             with h5py.File(self.hdf5_path, 'a') as hf:

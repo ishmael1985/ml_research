@@ -4,5 +4,6 @@
     "stride": 41,
     "channels": 1,
     "batch_size": 512,
-    "upscale_factors": [2]
+    "upscale_factors": [2],
+    "total_patches": 15000
 }
